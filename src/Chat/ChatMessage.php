@@ -57,6 +57,34 @@ final readonly class ChatMessage
     }
 
     /**
+     * @param array<string, mixed> $metadata
+     */
+    public static function bot(string $roomId, string $botName, string $text, array $metadata = []): self
+    {
+        $normalizedName = preg_replace('/[^a-zA-Z0-9_ -]/', '_', $botName);
+
+        if (!is_string($normalizedName) || trim($normalizedName) === '') {
+            $normalizedName = 'bot';
+        }
+
+        $botId = 'bot:' . strtolower(str_replace(' ', '_', trim($normalizedName)));
+
+        return new self(
+            id: 'msg_' . bin2hex(random_bytes(16)),
+            roomId: $roomId,
+            fromUserId: $botId,
+            kind: 'bot',
+            body: $text,
+            createdAt: new DateTimeImmutable(),
+            metadata: [
+                'bot' => true,
+                'botName' => $botName,
+                ...$metadata,
+            ],
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

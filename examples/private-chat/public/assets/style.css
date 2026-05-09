@@ -447,6 +447,25 @@ body {
   background: linear-gradient(135deg, rgba(5, 150, 105, 0.96), rgba(37, 99, 235, 0.96));
 }
 
+.message-row.is-bot .message-bubble {
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(14, 116, 144, 0.18);
+}
+
+.message-row.is-bot .message-meta::before {
+  content: "BOT";
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.18);
+  color: #7dd3fc;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
 .typing-indicator {
   min-height: 42px;
   padding: 0 22px 16px;

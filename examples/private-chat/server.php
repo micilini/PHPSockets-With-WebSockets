@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__ . '/bots/EchoBot.php';
+require __DIR__ . '/bots/HelpBot.php';
 
 use Micilini\PhpSockets\Chat\ChatMessage;
 use Micilini\PhpSockets\Chat\ChatServer;
@@ -10,6 +12,8 @@ use Micilini\PhpSockets\Chat\UserSession;
 use Micilini\PhpSockets\Config\ChatConfig;
 use Micilini\PhpSockets\Config\ServerConfig;
 use Micilini\PhpSockets\Connection\Connection;
+use Micilini\PhpSockets\Examples\PrivateChat\Bots\EchoBot;
+use Micilini\PhpSockets\Examples\PrivateChat\Bots\HelpBot;
 
 $host = getenv('PHPSOCKETS_HOST') ?: '127.0.0.1';
 $port = (int) (getenv('PHPSOCKETS_PORT') ?: 8080);
@@ -22,6 +26,10 @@ $server = ChatServer::create(
     ServerConfig::new(host: $host, port: $port, maxPayloadBytes: 4 * 1024 * 1024),
     ChatConfig::new(),
 );
+
+$server->bots()
+    ->register(new HelpBot())
+    ->register(new EchoBot());
 
 $server->on('open', function (Connection $connection): void {
     echo "[socket.open] {$connection->id()} connected from {$connection->remoteAddress()}\n";
@@ -78,6 +86,17 @@ $server->on('message.received', function (array $event): void {
     $body = is_string($message->body) ? $message->body : '[file attachment]';
 
     echo "[private.message.received] scope={$scope} room={$message->roomId} from={$message->fromUserId}: {$body}\n";
+});
+
+$server->on('bot.responded', function (array $event): void {
+    $message = $event['message'] ?? null;
+    $scope = (string) ($event['scope'] ?? 'unknown');
+
+    if (!$message instanceof ChatMessage) {
+        return;
+    }
+
+    echo "[private.bot.responded] scope={$scope} room={$message->roomId} from={$message->fromUserId}\n";
 });
 
 $server->run();

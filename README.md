@@ -151,6 +151,38 @@ $pdo = PdoConnectionFactory::sqlite(__DIR__ . '/storage/phpsockets.sqlite');
 
 The CLI migration command will be added in a future phase.
 
+## Bot hooks
+
+PHPSockets includes a lightweight bot hook layer.
+
+Bots can listen to text messages and respond in the same conversation context.
+
+Supported contexts:
+
+- Global Room
+- Direct conversations
+- Private group rooms
+
+Example:
+
+```php
+$server->bots()->register(new EchoBot());
+```
+
+Example command:
+
+```txt
+/echo hello
+```
+
+Response:
+
+```txt
+hello
+```
+
+Bots are intentionally simple in v1. They do not call external AI APIs or run asynchronous jobs.
+
 ## Emoji and small attachment support
 
 The chat examples support a composer action button next to the message input.

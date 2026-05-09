@@ -112,6 +112,23 @@ PrivateChat displays unread badges for Global Room, direct conversations and pri
 
 Badges increase while a conversation is not open and reset when the conversation is opened.
 
+## Bot commands
+
+This example registers two simple bots:
+
+```txt
+/help
+/echo <text>
+```
+
+The bot response appears in the same conversation:
+
+- Global Room
+- Direct conversation
+- Private group room
+
+Bots only respond to text messages. File messages do not trigger bots.
+
 ## Storage note
 
 This example still uses in-memory storage by default.
