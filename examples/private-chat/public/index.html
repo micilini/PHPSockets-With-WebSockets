@@ -85,6 +85,26 @@
         <div id="typingIndicator" class="typing-indicator d-none" aria-live="polite"></div>
 
         <form id="messageForm" class="message-form">
+          <div class="composer-actions">
+            <button id="composerActionsButton" class="composer-actions-button" type="button" aria-label="Open message actions">+</button>
+
+            <div id="composerActionsMenu" class="composer-actions-menu d-none" aria-hidden="true">
+              <button id="openEmojiButton" type="button" class="composer-action-item">
+                <span>Emoji</span>
+                <strong>Emoji</strong>
+              </button>
+
+              <button id="openFileButton" type="button" class="composer-action-item">
+                <span>File</span>
+                <strong>File</strong>
+              </button>
+            </div>
+
+            <div id="emojiPicker" class="emoji-picker d-none" aria-hidden="true"></div>
+
+            <input id="fileInput" class="d-none" type="file" accept="image/png,image/jpeg,image/gif,application/pdf,text/plain">
+          </div>
+
           <input id="messageInput" class="form-control form-control-lg" type="text" autocomplete="off" placeholder="Write a message..." required>
           <button class="btn btn-primary btn-lg" type="submit">Send</button>
         </form>

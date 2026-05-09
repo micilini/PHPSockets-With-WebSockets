@@ -7,6 +7,7 @@ namespace Micilini\PhpSockets\Chat;
 use DateTimeImmutable;
 use Micilini\PhpSockets\Config\ChatConfig;
 use Micilini\PhpSockets\Connection\Connection;
+use Micilini\PhpSockets\Contracts\AttachmentStoreInterface;
 use Micilini\PhpSockets\Contracts\ConnectionRegistryInterface;
 use Micilini\PhpSockets\Contracts\MessageStoreInterface;
 use Micilini\PhpSockets\Contracts\RoomStoreInterface;
@@ -16,6 +17,7 @@ use Micilini\PhpSockets\Exceptions\UsernameAlreadyTakenException;
 use Micilini\PhpSockets\Protocol\Frame;
 use Micilini\PhpSockets\Protocol\Opcode;
 use Micilini\PhpSockets\Server\WebSocketServer;
+use Micilini\PhpSockets\Storage\File\FileAttachmentStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemoryMessageStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemoryRoomStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemorySessionStore;
@@ -31,6 +33,8 @@ final class ChatKernel
     private readonly RoomManager $roomManager;
     private readonly DirectMessageRouter $directMessages;
     private readonly PrivateGroupRouter $privateGroups;
+    private readonly AttachmentValidator $attachmentValidator;
+    private readonly AttachmentStoreInterface $attachments;
 
     /**
      * @var array<string, list<callable(array<string, mixed>): void>>
@@ -42,11 +46,14 @@ final class ChatKernel
         ?SessionStoreInterface $sessionStore = null,
         ?MessageStoreInterface $messageStore = null,
         ?RoomStoreInterface $roomStore = null,
+        ?AttachmentStoreInterface $attachmentStore = null,
     ) {
         $this->sessions = $sessionStore ?? new InMemorySessionStore();
         $this->messages = $messageStore ?? new InMemoryMessageStore();
         $this->rooms = $roomStore ?? new InMemoryRoomStore();
         $this->validator = new PayloadValidator();
+        $this->attachmentValidator = new AttachmentValidator($this->config);
+        $this->attachments = $attachmentStore ?? new FileAttachmentStore(sys_get_temp_dir() . '/phpsockets-attachments');
         $this->presence = new PresenceManager(
             new UsernameNormalizer($this->config->maxDisplayNameLength),
             $this->sessions,
@@ -111,8 +118,10 @@ final class ChatKernel
 
             match ($envelope->type) {
                 'auth.join' => $this->handleJoin($connections, $connection, $envelope),
+                'attachment.prepare' => $this->handleAttachmentPrepare($connection, $envelope),
                 'message.global' => $this->handleGlobalMessage($connections, $connection, $envelope),
                 'message.direct' => $this->handleDirectMessage($connections, $connection, $envelope),
+                'message.file' => $this->handleFileMessage($connections, $connection, $envelope),
                 'message.read' => $this->handleMessageRead($connections, $connection, $envelope),
                 'room.create' => $this->handleRoomCreate($connections, $connection, $envelope),
                 'room.message' => $this->handleRoomMessage($connections, $connection, $envelope),
@@ -311,6 +320,95 @@ final class ChatKernel
         ]));
     }
 
+    private function handleAttachmentPrepare(Connection $connection, MessageEnvelope $envelope): void
+    {
+        $this->requireAuthenticated($connection);
+
+        try {
+            $fileName = $this->attachmentValidator->fileName($envelope->payload['fileName'] ?? null);
+            $mimeType = $this->attachmentValidator->mimeType($envelope->payload['mimeType'] ?? null);
+            $sizeBytes = $this->attachmentValidator->sizeBytes($envelope->payload['sizeBytes'] ?? null);
+
+            $this->sendEnvelope($connection, MessageEnvelope::server('attachment.accepted', [
+                'fileName' => $fileName,
+                'mimeType' => $mimeType,
+                'sizeBytes' => $sizeBytes,
+                'maxAttachmentBytes' => $this->config->maxAttachmentBytes,
+            ]));
+
+            return;
+        } catch (InvalidPayloadException $exception) {
+            $this->sendEnvelope($connection, MessageEnvelope::server('attachment.rejected', [
+                'message' => $exception->getMessage(),
+                'maxAttachmentBytes' => $this->config->maxAttachmentBytes,
+            ]));
+        }
+    }
+
+    private function handleFileMessage(
+        ConnectionRegistryInterface $connections,
+        Connection $connection,
+        MessageEnvelope $envelope,
+    ): void {
+        $fromUserId = $this->requireAuthenticated($connection);
+        $attachmentPayload = $this->validator->attachmentPayload($envelope);
+        $fileName = $this->attachmentValidator->fileName($attachmentPayload['fileName'] ?? null);
+        $mimeType = $this->attachmentValidator->mimeType($attachmentPayload['mimeType'] ?? null);
+        $sizeBytes = $this->attachmentValidator->sizeBytes($attachmentPayload['sizeBytes'] ?? null);
+        $content = $this->attachmentValidator->decodedContent($attachmentPayload['contentBase64'] ?? null, $sizeBytes);
+        $target = $this->resolveFileMessageTarget($fromUserId, $envelope);
+        $clientMessageId = $this->validator->clientMessageId($envelope);
+        $metadata = [];
+
+        if ($clientMessageId !== null) {
+            $metadata['clientMessageId'] = $clientMessageId;
+        }
+
+        $draftMessage = ChatMessage::file(
+            roomId: $target['room']->id,
+            fromUserId: $fromUserId,
+            body: [],
+            metadata: $metadata,
+        );
+        $attachment = $this->storeAttachment(
+            messageId: $draftMessage->id,
+            fileName: $fileName,
+            mimeType: $mimeType,
+            content: $content,
+        );
+        $message = new ChatMessage(
+            id: $draftMessage->id,
+            roomId: $draftMessage->roomId,
+            fromUserId: $draftMessage->fromUserId,
+            kind: $draftMessage->kind,
+            body: $this->fileMessageBody($attachment, $content),
+            createdAt: $draftMessage->createdAt,
+            metadata: $draftMessage->metadata,
+        );
+
+        $this->messages->save($message);
+
+        $this->emit('message.received', [
+            'message' => $message,
+            'room' => $target['room'],
+            'connection' => $connection,
+            'scope' => $target['scope'],
+        ]);
+
+        $envelope = MessageEnvelope::server('message.received', [
+            'roomId' => $target['room']->id,
+            'message' => $message->toArray(),
+        ]);
+
+        if ($target['recipientUserIds'] === null) {
+            $this->broadcastAuthenticated($connections, $envelope);
+
+            return;
+        }
+
+        $this->deliverToUsers($connections, $target['recipientUserIds'], $envelope);
+    }
+
     private function handleMessageRead(
         ConnectionRegistryInterface $connections,
         Connection $connection,
@@ -457,6 +555,98 @@ final class ChatKernel
             'roomId' => 'global',
             'scope' => 'global',
         ]));
+    }
+
+    /**
+     * @return array{room: Room, recipientUserIds: list<string>|null, scope: string}
+     */
+    private function resolveFileMessageTarget(string $fromUserId, MessageEnvelope $envelope): array
+    {
+        $scope = $envelope->payload['scope'] ?? 'global';
+
+        if (!is_string($scope) || trim($scope) === '') {
+            $scope = 'global';
+        }
+
+        $scope = trim($scope);
+
+        if ($scope === 'direct') {
+            $toUserId = $this->validator->targetUserId($envelope);
+
+            $this->assertOnlineUser($toUserId);
+
+            $room = $this->roomManager->createDirectRoom($fromUserId, $toUserId);
+
+            return [
+                'room' => $room,
+                'recipientUserIds' => [$fromUserId, $toUserId],
+                'scope' => 'direct',
+            ];
+        }
+
+        if ($scope === 'room') {
+            $roomId = $this->validator->roomId($envelope);
+            $room = $this->roomManager->assertMember($roomId, $fromUserId);
+
+            return [
+                'room' => $room,
+                'recipientUserIds' => $room->memberUserIds,
+                'scope' => 'room',
+            ];
+        }
+
+        return [
+            'room' => $this->roomManager->ensureGlobalRoom(),
+            'recipientUserIds' => null,
+            'scope' => 'global',
+        ];
+    }
+
+    private function storeAttachment(
+        string $messageId,
+        string $fileName,
+        string $mimeType,
+        string $content,
+    ): Attachment {
+        if ($this->attachments instanceof FileAttachmentStore) {
+            return $this->attachments->saveContent(
+                messageId: $messageId,
+                fileName: $fileName,
+                mimeType: $mimeType,
+                content: $content,
+            );
+        }
+
+        return $this->attachments->save(Attachment::new(
+            messageId: $messageId,
+            fileName: $fileName,
+            mimeType: $mimeType,
+            sizeBytes: strlen($content),
+            path: 'attachment://' . $fileName,
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fileMessageBody(Attachment $attachment, string $content): array
+    {
+        return [
+            'attachmentId' => $attachment->id,
+            'fileName' => $attachment->fileName,
+            'mimeType' => $attachment->mimeType,
+            'sizeBytes' => $attachment->sizeBytes,
+            'previewDataUrl' => $this->previewDataUrl($attachment->mimeType, $content),
+        ];
+    }
+
+    private function previewDataUrl(string $mimeType, string $content): ?string
+    {
+        if (!str_starts_with($mimeType, 'image/')) {
+            return null;
+        }
+
+        return 'data:' . $mimeType . ';base64,' . base64_encode($content);
     }
 
     private function requireAuthenticated(Connection $connection): string

@@ -101,9 +101,26 @@ final readonly class FileMessageStore implements MessageStoreInterface
             roomId: (string) $row['roomId'],
             fromUserId: (string) $row['fromUserId'],
             kind: (string) $row['kind'],
-            body: $row['body'] === null ? null : (string) $row['body'],
+            body: $this->body($row['body'] ?? null),
             createdAt: new DateTimeImmutable((string) $row['createdAt']),
             metadata: $metadata,
         );
+    }
+
+    /**
+     * @return string|array<string, mixed>|null
+     */
+    private function body(mixed $body): string|array|null
+    {
+        if ($body === null || is_string($body)) {
+            return $body;
+        }
+
+        if (is_array($body)) {
+            /** @var array<string, mixed> $body */
+            return $body;
+        }
+
+        return null;
     }
 }

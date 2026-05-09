@@ -13,8 +13,10 @@ final class PayloadValidator
      */
     private array $allowedTypes = [
         'auth.join',
+        'attachment.prepare',
         'message.global',
         'message.direct',
+        'message.file',
         'message.read',
         'room.create',
         'room.message',
@@ -61,6 +63,23 @@ final class PayloadValidator
         return $this->requiredString($envelope, 'roomId');
     }
 
+    public function optionalRoomId(MessageEnvelope $envelope): ?string
+    {
+        $value = $envelope->payload['roomId'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            throw new InvalidPayloadException('Payload field roomId must be a string.');
+        }
+
+        $value = trim($value);
+
+        return $value !== '' ? $value : null;
+    }
+
     public function messageId(MessageEnvelope $envelope): string
     {
         return $this->requiredString($envelope, 'messageId');
@@ -104,6 +123,21 @@ final class PayloadValidator
         }
 
         return trim($name);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function attachmentPayload(MessageEnvelope $envelope): array
+    {
+        $value = $envelope->payload['attachment'] ?? null;
+
+        if (!is_array($value)) {
+            throw new InvalidPayloadException('Payload field attachment is required.');
+        }
+
+        /** @var array<string, mixed> $value */
+        return $value;
     }
 
     /**

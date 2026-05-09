@@ -9,6 +9,7 @@ use DateTimeImmutable;
 final readonly class ChatMessage
 {
     /**
+     * @param string|array<string, mixed>|null $body
      * @param array<string, mixed> $metadata
      */
     public function __construct(
@@ -16,7 +17,7 @@ final readonly class ChatMessage
         public string $roomId,
         public string $fromUserId,
         public string $kind,
-        public ?string $body,
+        public string|array|null $body,
         public DateTimeImmutable $createdAt,
         public array $metadata = [],
     ) {
@@ -33,6 +34,23 @@ final readonly class ChatMessage
             fromUserId: $fromUserId,
             kind: 'text',
             body: $text,
+            createdAt: new DateTimeImmutable(),
+            metadata: $metadata,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     * @param array<string, mixed> $metadata
+     */
+    public static function file(string $roomId, string $fromUserId, array $body, array $metadata = []): self
+    {
+        return new self(
+            id: 'msg_' . bin2hex(random_bytes(16)),
+            roomId: $roomId,
+            fromUserId: $fromUserId,
+            kind: 'file',
+            body: $body,
             createdAt: new DateTimeImmutable(),
             metadata: $metadata,
         );

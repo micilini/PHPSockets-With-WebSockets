@@ -118,6 +118,39 @@ This example still uses in-memory storage by default.
 
 The package now includes optional storage adapters and migrations, but the official CLI/config workflow is added in a later phase.
 
+## Composer actions
+
+The message input includes a left-side action button.
+
+It opens:
+
+- Emoji picker.
+- File picker.
+
+Allowed files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max size:
+
+```txt
+512 KB
+```
+
+Files follow the active conversation context:
+
+- Global Room sends files to everyone.
+- Direct conversations send files only to the selected user.
+- Private group rooms send files only to room members.
+
+All user-provided text continues to be rendered safely.
+
 ## Important notes
 
 This phase implements direct 1:1 private messaging and private group rooms.

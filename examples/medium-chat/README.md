@@ -122,3 +122,30 @@ This example still uses the global room only.
 Message receipts are browser-only example receipts. They are not persisted and do not represent a full per-user room read history.
 
 Direct private messages and private group rooms are demonstrated in later phases.
+
+## Composer actions
+
+The message input includes a left-side action button.
+
+It opens:
+
+- Emoji picker.
+- File picker.
+
+Allowed files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max size:
+
+```txt
+512 KB
+```
+
+All user-provided text continues to be rendered safely.

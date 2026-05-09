@@ -151,6 +151,19 @@ $pdo = PdoConnectionFactory::sqlite(__DIR__ . '/storage/phpsockets.sqlite');
 
 The CLI migration command will be added in a future phase.
 
+## Emoji and small attachment support
+
+The chat examples support a composer action button next to the message input.
+
+Users can:
+
+- Insert emojis from a small built-in emoji picker.
+- Send small files up to the configured limit.
+- Send image previews, PDFs and text files.
+- Keep message rendering safe with `textContent`.
+
+The initial attachment transport uses base64 payloads over WebSocket with strict limits. Larger uploads and chunked binary frames are planned for future versions.
+
 ## Requirements
 
 The modern version targets:

@@ -91,3 +91,30 @@ This example is intentionally simple.
 Message receipts are browser-only example receipts. They are not persisted and do not represent a full per-user room read history.
 
 It only demonstrates the global chat flow. Private direct messages and private group rooms will be demonstrated in later examples.
+
+## Composer actions
+
+The message input includes a left-side action button.
+
+It opens:
+
+- Emoji picker.
+- File picker.
+
+Allowed files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max size:
+
+```txt
+512 KB
+```
+
+All user-provided text continues to be rendered safely.
