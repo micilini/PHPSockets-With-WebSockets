@@ -151,6 +151,43 @@ $pdo = PdoConnectionFactory::sqlite(__DIR__ . '/storage/phpsockets.sqlite');
 
 The CLI migration command will be added in a future phase.
 
+## Emoji and small attachment support
+
+The chat examples support a composer action button next to the message input.
+
+Users can:
+
+- Insert emojis from a small built-in emoji picker.
+- Send small files up to the configured limit.
+- Send image previews, PDFs and text files.
+- Keep message rendering safe with `textContent`.
+
+The initial attachment transport uses JSON text-frame envelopes with base64 payloads over WebSocket. The chat core does not accept binary WebSocket frames for chat messages in this version. Larger uploads and chunked binary frames are planned for future versions.
+
+## Attachment composer behavior
+
+Selecting a file does not send it immediately.
+
+The selected file appears as a pending attachment in the composer. The user can add a text caption and click `Send`.
+
+Supported files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max file size:
+
+```txt
+2 MB
+```
+
+Each delivered file message includes a download button.
+
 ## Requirements
 
 The modern version targets:

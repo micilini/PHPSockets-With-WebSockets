@@ -85,8 +85,40 @@
         <div id="typingIndicator" class="typing-indicator d-none" aria-live="polite"></div>
 
         <form id="messageForm" class="message-form">
-          <input id="messageInput" class="form-control form-control-lg" type="text" autocomplete="off" placeholder="Write a message..." required>
-          <button class="btn btn-primary btn-lg" type="submit">Send</button>
+          <div id="selectedAttachmentPreview" class="selected-attachment-preview d-none" aria-live="polite"></div>
+
+          <div class="composer-row">
+            <div class="composer-actions">
+              <button id="composerActionsButton" class="composer-actions-button" type="button" aria-label="Open message actions">+</button>
+
+              <div id="composerActionsMenu" class="composer-actions-menu d-none" aria-hidden="true">
+                <button id="openEmojiButton" type="button" class="composer-action-item">
+                  <span class="composer-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-3.5-8.5a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm7 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5ZM8.2 14.2a1 1 0 0 1 1.4.2 3 3 0 0 0 4.8 0 1 1 0 1 1 1.6 1.2 5 5 0 0 1-8 0 1 1 0 0 1 .2-1.4Z"/>
+                    </svg>
+                  </span>
+                  <span class="composer-action-label">Emoji</span>
+                </button>
+
+                <button id="openFileButton" type="button" class="composer-action-item">
+                  <span class="composer-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M7.5 20A5.5 5.5 0 0 1 2 14.5c0-1.46.58-2.86 1.61-3.89l7.78-7.78a4 4 0 0 1 5.66 5.66l-7.78 7.78a2.5 2.5 0 1 1-3.54-3.54l7.07-7.07a1 1 0 1 1 1.42 1.42l-7.08 7.07a.5.5 0 0 0 .71.71l7.78-7.78a2 2 0 0 0-2.83-2.83l-7.78 7.78A3.5 3.5 0 0 0 7.5 18h7a1 1 0 1 1 0 2h-7Z"/>
+                    </svg>
+                  </span>
+                  <span class="composer-action-label">File</span>
+                </button>
+              </div>
+
+              <div id="emojiPicker" class="emoji-picker d-none" aria-hidden="true"></div>
+
+              <input id="fileInput" class="d-none" type="file" accept="image/png,image/jpeg,image/gif,application/pdf,text/plain">
+            </div>
+
+            <input id="messageInput" class="form-control form-control-lg" type="text" autocomplete="off" placeholder="Write a message...">
+            <button class="btn btn-primary btn-lg" type="submit">Send</button>
+          </div>
         </form>
       </section>
 

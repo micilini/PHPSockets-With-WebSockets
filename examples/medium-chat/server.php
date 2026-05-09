@@ -20,7 +20,7 @@ echo "Open the browser UI with: php -S 127.0.0.1:8001 -t examples/medium-chat/pu
 echo "Press Ctrl+C to stop the WebSocket server.\n\n";
 
 $server = ChatServer::create(
-    ServerConfig::new(host: $host, port: $port),
+    ServerConfig::new(host: $host, port: $port, maxPayloadBytes: 4 * 1024 * 1024),
     ChatConfig::new(),
 );
 
@@ -76,7 +76,9 @@ $server->on('message.received', function (array $event): void {
         return;
     }
 
-    echo "[chat.message.received] scope={$scope} room={$message->roomId} from={$message->fromUserId}: {$message->body}\n";
+    $body = is_string($message->body) ? $message->body : '[file attachment]';
+
+    echo "[chat.message.received] scope={$scope} room={$message->roomId} from={$message->fromUserId}: {$body}\n";
 });
 
 $server->on('room.created', function (array $event): void {

@@ -118,6 +118,65 @@ This example still uses in-memory storage by default.
 
 The package now includes optional storage adapters and migrations, but the official CLI/config workflow is added in a later phase.
 
+## Composer actions
+
+The message input includes a left-side action button.
+
+It opens:
+
+- Emoji picker.
+- File picker.
+
+Allowed files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max size:
+
+```txt
+2 MB
+```
+
+Files follow the active conversation context:
+
+- Global Room sends files to everyone.
+- Direct conversations send files only to the selected user.
+- Private group rooms send files only to room members.
+
+All user-provided text continues to be rendered safely.
+
+## Attachment composer behavior
+
+Selecting a file does not send it immediately.
+
+The selected file appears as a pending attachment in the composer. The user can add a text caption and click `Send`.
+
+Supported files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max file size:
+
+```txt
+2 MB
+```
+
+Each delivered file message includes a download button.
+
+Attachments are transported as JSON text-frame envelopes with base64 content. The chat core does not accept binary WebSocket frames for chat messages in this version.
+
 ## Important notes
 
 This phase implements direct 1:1 private messaging and private group rooms.

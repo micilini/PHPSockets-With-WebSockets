@@ -12,6 +12,7 @@ const state = {
   messageElements: new Map(),
   messageReadBy: new Map(),
   unreadCounts: new Map(),
+  selectedAttachment: null,
   isTyping: false,
   typingStopTimer: null,
   lastTypingStartSentAt: 0,
@@ -28,16 +29,35 @@ state.conversations.set('global', {
   roomId: 'global',
 });
 
+const EMOJIS = [
+  '\u{1F600}', '\u{1F603}', '\u{1F604}', '\u{1F601}', '\u{1F606}', '\u{1F605}', '\u{1F602}', '\u{1F642}',
+  '\u{1F60D}', '\u{1F618}', '\u{1F60E}', '\u{1F914}', '\u{1F44D}', '\u{1F44F}', '\u{1F64C}', '\u{1F525}',
+  '\u2764\uFE0F', '\u{1F680}', '\u{1F389}', '\u2728', '\u{1F4A1}', '\u2705', '\u{1F4CC}', '\u{1F4E6}',
+];
+
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'application/pdf',
+  'text/plain',
+];
+
 const elements = {
   alertBox: document.getElementById('alertBox'),
   chatPanel: document.getElementById('chatPanel'),
   closePrivateRoomModalButton: document.getElementById('closePrivateRoomModalButton'),
+  composerActionsButton: document.getElementById('composerActionsButton'),
+  composerActionsMenu: document.getElementById('composerActionsMenu'),
   connectionStatus: document.getElementById('connectionStatus'),
   conversationEyebrow: document.getElementById('conversationEyebrow'),
   conversationTitle: document.getElementById('conversationTitle'),
   createPrivateRoomButton: document.getElementById('createPrivateRoomButton'),
   currentDisplayName: document.getElementById('currentDisplayName'),
   displayNameInput: document.getElementById('displayNameInput'),
+  emojiPicker: document.getElementById('emojiPicker'),
+  fileInput: document.getElementById('fileInput'),
   globalRoomButton: document.getElementById('globalRoomButton'),
   groupRoomsList: document.getElementById('groupRoomsList'),
   joinButton: document.getElementById('joinButton'),
@@ -48,14 +68,19 @@ const elements = {
   messagesList: document.getElementById('messagesList'),
   newPrivateRoomButton: document.getElementById('newPrivateRoomButton'),
   onlineCount: document.getElementById('onlineCount'),
+  openEmojiButton: document.getElementById('openEmojiButton'),
+  openFileButton: document.getElementById('openFileButton'),
   privateRoomForm: document.getElementById('privateRoomForm'),
   privateRoomModal: document.getElementById('privateRoomModal'),
   privateRoomNameInput: document.getElementById('privateRoomNameInput'),
   privateRoomUsersList: document.getElementById('privateRoomUsersList'),
   serverUrlInput: document.getElementById('serverUrlInput'),
+  selectedAttachmentPreview: document.getElementById('selectedAttachmentPreview'),
   typingIndicator: document.getElementById('typingIndicator'),
   usersList: document.getElementById('usersList'),
 };
+
+let alertDismissTimer = null;
 
 elements.joinForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -94,19 +119,25 @@ elements.privateRoomForm.addEventListener('submit', (event) => {
   createPrivateRoomFromForm();
 });
 
-elements.messageForm.addEventListener('submit', (event) => {
+elements.messageForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const text = elements.messageInput.value.trim();
+  const selectedAttachment = state.selectedAttachment;
   const conversation = state.conversations.get(state.activeConversationId);
 
-  if (!text) {
+  if (!text && !selectedAttachment) {
     stopTyping();
     return;
   }
 
   if (!conversation) {
     showAlert('Choose a conversation before sending a message.', 'warning');
+    return;
+  }
+
+  if (selectedAttachment) {
+    await sendSelectedAttachment(text);
     return;
   }
 
@@ -143,6 +174,37 @@ elements.messageInput.addEventListener('blur', () => {
   stopTyping();
 });
 
+elements.composerActionsButton.addEventListener('click', () => {
+  toggleComposerActionsMenu();
+});
+
+elements.openEmojiButton.addEventListener('click', () => {
+  closeComposerActionsMenu();
+  toggleEmojiPicker();
+});
+
+elements.openFileButton.addEventListener('click', () => {
+  closeComposerActionsMenu();
+  elements.fileInput.click();
+});
+
+elements.fileInput.addEventListener('change', () => {
+  handleSelectedFile();
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target;
+
+  if (!(target instanceof Element)) {
+    return;
+  }
+
+  if (!target.closest('.composer-actions')) {
+    closeComposerActionsMenu();
+    closeEmojiPicker();
+  }
+});
+
 window.addEventListener('beforeunload', () => {
   stopTyping();
 
@@ -151,6 +213,7 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+renderEmojiPicker();
 renderEmptyMessages();
 renderTypingIndicator();
 renderConversationHeader();
@@ -253,6 +316,14 @@ function handleServerMessage(rawMessage) {
 
     case 'message.read':
       handleMessageRead(envelope.payload);
+      break;
+
+    case 'attachment.accepted':
+      handleAttachmentAccepted(envelope.payload);
+      break;
+
+    case 'attachment.rejected':
+      handleAttachmentRejected(envelope.payload);
       break;
 
     case 'room.created':
@@ -468,6 +539,18 @@ function handleServerError(payload) {
   }
 
   showAlert(message, 'danger');
+}
+
+function handleAttachmentAccepted(payload) {
+  void payload;
+}
+
+function handleAttachmentRejected(payload) {
+  const message = payload && typeof payload.message === 'string'
+    ? payload.message
+    : 'Attachment was rejected.';
+
+  showAlert(message, 'warning');
 }
 
 function sendEnvelope(type, payload) {
@@ -879,6 +962,33 @@ function addPendingOwnMessage(text, clientMessageId, conversationId) {
   addMessage(message, conversationId);
 }
 
+function addPendingOwnFileMessage(file, clientMessageId, conversationId, caption = '') {
+  const conversation = state.conversations.get(conversationId);
+  const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+  const downloadUrl = URL.createObjectURL(file);
+  const message = {
+    id: clientMessageId,
+    roomId: conversation && conversation.roomId ? conversation.roomId : 'global',
+    fromUserId: state.currentUser ? state.currentUser.userId : null,
+    kind: 'file',
+    body: {
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      previewDataUrl: previewUrl,
+      downloadDataUrl: downloadUrl,
+      caption,
+    },
+    metadata: { clientMessageId },
+    createdAt: new Date().toISOString(),
+    status: 'sent',
+  };
+
+  state.pendingMessages.set(clientMessageId, message);
+  state.pendingMessageConversations.set(clientMessageId, conversationId);
+  addMessage(message, conversationId);
+}
+
 function addMessage(message, conversationId) {
   messagesForConversation(conversationId).push(message);
 
@@ -1053,6 +1163,9 @@ function resetToLogin(keepDisplayName) {
   state.messageReadBy.clear();
   state.unreadCounts.clear();
   clearTypingState();
+  closeComposerActionsMenu();
+  closeEmojiPicker();
+  clearSelectedAttachment();
 
   elements.chatPanel.classList.add('d-none');
   elements.loginPanel.classList.remove('d-none');
@@ -1069,6 +1182,278 @@ function resetToLogin(keepDisplayName) {
   renderMessages();
 }
 
+function toggleComposerActionsMenu() {
+  const isHidden = elements.composerActionsMenu.classList.contains('d-none');
+
+  elements.composerActionsMenu.classList.toggle('d-none', !isHidden);
+  elements.composerActionsMenu.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
+
+  closeEmojiPicker();
+}
+
+function closeComposerActionsMenu() {
+  elements.composerActionsMenu.classList.add('d-none');
+  elements.composerActionsMenu.setAttribute('aria-hidden', 'true');
+}
+
+function toggleEmojiPicker() {
+  const isHidden = elements.emojiPicker.classList.contains('d-none');
+
+  elements.emojiPicker.classList.toggle('d-none', !isHidden);
+  elements.emojiPicker.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
+}
+
+function closeEmojiPicker() {
+  elements.emojiPicker.classList.add('d-none');
+  elements.emojiPicker.setAttribute('aria-hidden', 'true');
+}
+
+function renderEmojiPicker() {
+  elements.emojiPicker.replaceChildren();
+
+  for (const emoji of EMOJIS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'emoji-button';
+    button.textContent = emoji;
+    button.title = emoji;
+
+    button.addEventListener('click', () => {
+      insertAtCursor(elements.messageInput, emoji);
+      closeEmojiPicker();
+    });
+
+    elements.emojiPicker.appendChild(button);
+  }
+}
+
+function insertAtCursor(input, value) {
+  const start = input.selectionStart || 0;
+  const end = input.selectionEnd || 0;
+  const before = input.value.slice(0, start);
+  const after = input.value.slice(end);
+
+  input.value = `${before}${value}${after}`;
+  input.selectionStart = start + value.length;
+  input.selectionEnd = start + value.length;
+  input.focus();
+
+  handleTypingInput();
+}
+
+function handleSelectedFile() {
+  const file = elements.fileInput.files && elements.fileInput.files[0]
+    ? elements.fileInput.files[0]
+    : null;
+
+  elements.fileInput.value = '';
+
+  if (!file) {
+    return;
+  }
+
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    showAlert(`File is too large. Maximum size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`, 'warning');
+    return;
+  }
+
+  if (!isAllowedAttachment(file)) {
+    showAlert('This file type is not allowed.', 'warning');
+    return;
+  }
+
+  setSelectedAttachment(file);
+}
+
+function setSelectedAttachment(file) {
+  clearSelectedAttachment();
+
+  const previewUrl = file.type.startsWith('image/')
+    ? URL.createObjectURL(file)
+    : null;
+
+  state.selectedAttachment = { file, previewUrl };
+
+  renderSelectedAttachmentPreview();
+}
+
+function clearSelectedAttachment() {
+  if (state.selectedAttachment && state.selectedAttachment.previewUrl) {
+    URL.revokeObjectURL(state.selectedAttachment.previewUrl);
+  }
+
+  state.selectedAttachment = null;
+  renderSelectedAttachmentPreview();
+}
+
+function renderSelectedAttachmentPreview() {
+  elements.selectedAttachmentPreview.replaceChildren();
+
+  if (!state.selectedAttachment) {
+    elements.selectedAttachmentPreview.classList.add('d-none');
+    return;
+  }
+
+  const { file, previewUrl } = state.selectedAttachment;
+
+  elements.selectedAttachmentPreview.classList.remove('d-none');
+
+  const info = document.createElement('div');
+  info.className = 'selected-attachment-info';
+
+  const thumb = document.createElement('span');
+  thumb.className = 'selected-attachment-thumb';
+
+  if (previewUrl) {
+    const image = document.createElement('img');
+    image.src = previewUrl;
+    image.alt = file.name;
+    thumb.appendChild(image);
+  } else {
+    thumb.textContent = file.type === 'application/pdf' ? 'PDF' : 'TXT';
+  }
+
+  const text = document.createElement('div');
+  text.className = 'selected-attachment-text';
+
+  const name = document.createElement('strong');
+  name.textContent = file.name;
+
+  const meta = document.createElement('small');
+  meta.textContent = `${file.type || 'unknown'} - ${formatFileSize(file.size)}`;
+
+  text.appendChild(name);
+  text.appendChild(meta);
+  info.appendChild(thumb);
+  info.appendChild(text);
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'remove-attachment-button';
+  removeButton.textContent = 'Remove';
+
+  removeButton.addEventListener('click', () => {
+    clearSelectedAttachment();
+    elements.messageInput.focus();
+  });
+
+  elements.selectedAttachmentPreview.appendChild(info);
+  elements.selectedAttachmentPreview.appendChild(removeButton);
+}
+
+async function sendSelectedAttachment(caption) {
+  if (!state.selectedAttachment) {
+    return;
+  }
+
+  const { file } = state.selectedAttachment;
+  const conversationId = state.activeConversationId;
+
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    showAlert(`File is too large. Maximum size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`, 'warning');
+    return;
+  }
+
+  if (!isAllowedAttachment(file)) {
+    showAlert('This file type is not allowed.', 'warning');
+    return;
+  }
+
+  try {
+    clearLocalTypingStateBeforeSend();
+
+    const contentBase64 = await readFileAsBase64(file);
+    const clientMessageId = createClientMessageId();
+
+    addPendingOwnFileMessage(file, clientMessageId, conversationId, caption);
+    sendEnvelope('message.file', fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64, caption));
+
+    elements.messageInput.value = '';
+    clearSelectedAttachment();
+    elements.messageInput.focus();
+  } catch (error) {
+    showAlert(error instanceof Error ? error.message : 'Failed to send file.', 'danger');
+  }
+}
+
+function fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64, caption) {
+  const conversation = state.conversations.get(state.activeConversationId);
+  const attachment = {
+    fileName: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    contentBase64,
+  };
+
+  if (!conversation || conversation.type === 'global') {
+    return { scope: 'global', clientMessageId, caption, attachment };
+  }
+
+  if (conversation.type === 'direct') {
+    return {
+      scope: 'direct',
+      toUserId: conversation.targetUserId,
+      clientMessageId,
+      caption,
+      attachment,
+    };
+  }
+
+  return {
+    scope: 'room',
+    roomId: conversation.roomId,
+    clientMessageId,
+    caption,
+    attachment,
+  };
+}
+
+function isAllowedAttachment(file) {
+  return ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type);
+}
+
+function formatFileSize(sizeBytes) {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.addEventListener('load', () => {
+      const result = reader.result;
+
+      if (typeof result !== 'string') {
+        reject(new Error('Failed to read file.'));
+        return;
+      }
+
+      const commaIndex = result.indexOf(',');
+
+      if (commaIndex === -1) {
+        reject(new Error('Failed to parse file content.'));
+        return;
+      }
+
+      resolve(result.slice(commaIndex + 1));
+    });
+
+    reader.addEventListener('error', () => {
+      reject(new Error('Failed to read file.'));
+    });
+
+    reader.readAsDataURL(file);
+  });
+}
+
 function setJoinFormEnabled(enabled) {
   elements.displayNameInput.disabled = !enabled;
   elements.serverUrlInput.disabled = !enabled;
@@ -1082,14 +1467,35 @@ function setStatus(label, mode) {
   elements.connectionStatus.classList.add(`status-${mode}`);
 }
 
-function showAlert(message, type) {
-  elements.alertBox.textContent = message;
+function showAlert(message, type = 'danger', autoDismissMs = 5000) {
+  if (alertDismissTimer) {
+    window.clearTimeout(alertDismissTimer);
+    alertDismissTimer = null;
+  }
+
   elements.alertBox.className = `alert app-alert alert-${type}`;
+  elements.alertBox.textContent = message;
+  elements.alertBox.classList.remove('d-none');
+
+  if (autoDismissMs > 0) {
+    alertDismissTimer = window.setTimeout(() => {
+      hideAlert();
+    }, autoDismissMs);
+  }
 }
 
 function clearAlert() {
+  hideAlert();
+}
+
+function hideAlert() {
+  if (alertDismissTimer) {
+    window.clearTimeout(alertDismissTimer);
+    alertDismissTimer = null;
+  }
+
+  elements.alertBox.classList.add('d-none');
   elements.alertBox.textContent = '';
-  elements.alertBox.className = 'alert app-alert d-none';
 }
 
 function renderUsers() {
@@ -1193,9 +1599,7 @@ function appendMessageElement(message) {
   status.className = 'message-status';
   updateStatusElement(status, isOwn ? message.status || 'received' : 'received');
 
-  const bubble = document.createElement('div');
-  bubble.className = 'message-bubble';
-  bubble.textContent = message.body || '';
+  const bubble = createMessageBodyElement(message);
 
   footer.appendChild(meta);
   footer.appendChild(status);
@@ -1204,6 +1608,79 @@ function appendMessageElement(message) {
 
   state.messageElements.set(message.id, row);
   elements.messagesList.appendChild(row);
+}
+
+function createMessageBodyElement(message) {
+  if (message.kind === 'file') {
+    return createFileMessageElement(message.body || {});
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble';
+  bubble.textContent = message.body || '';
+
+  return bubble;
+}
+
+function createFileMessageElement(body) {
+  const card = document.createElement('div');
+  card.className = 'message-bubble file-message';
+
+  const fileName = typeof body.fileName === 'string' ? body.fileName : 'Attachment';
+  const mimeType = typeof body.mimeType === 'string' ? body.mimeType : 'application/octet-stream';
+  const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : 0;
+  const previewDataUrl = typeof body.previewDataUrl === 'string' ? body.previewDataUrl : null;
+  const downloadUrl = typeof body.downloadDataUrl === 'string' ? body.downloadDataUrl : previewDataUrl;
+  const caption = typeof body.caption === 'string' ? body.caption.trim() : '';
+
+  if (previewDataUrl && mimeType.startsWith('image/')) {
+    const image = document.createElement('img');
+    image.className = 'file-message-preview';
+    image.src = previewDataUrl;
+    image.alt = fileName;
+    card.appendChild(image);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'file-message-info';
+
+  const icon = document.createElement('span');
+  icon.className = 'file-message-icon';
+  icon.textContent = mimeType.startsWith('image/') ? 'IMG' : mimeType === 'application/pdf' ? 'PDF' : 'TXT';
+
+  const text = document.createElement('div');
+
+  const name = document.createElement('strong');
+  name.textContent = fileName;
+
+  const meta = document.createElement('small');
+  meta.textContent = `${mimeType} - ${formatFileSize(sizeBytes)}`;
+
+  text.appendChild(name);
+  text.appendChild(meta);
+
+  info.appendChild(icon);
+  info.appendChild(text);
+  card.appendChild(info);
+
+  if (caption) {
+    const captionElement = document.createElement('p');
+    captionElement.className = 'file-message-caption';
+    captionElement.textContent = caption;
+    card.appendChild(captionElement);
+  }
+
+  if (downloadUrl) {
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'file-download-button';
+    downloadLink.href = downloadUrl;
+    downloadLink.download = fileName;
+    downloadLink.textContent = 'Download';
+    downloadLink.rel = 'noopener';
+    card.appendChild(downloadLink);
+  }
+
+  return card;
 }
 
 function renderTypingIndicator() {

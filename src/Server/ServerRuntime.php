@@ -19,6 +19,7 @@ use Micilini\PhpSockets\Protocol\Frame;
 use Micilini\PhpSockets\Protocol\FrameCodec;
 use Micilini\PhpSockets\Protocol\Handshake;
 use Micilini\PhpSockets\Protocol\Opcode;
+use Micilini\PhpSockets\Protocol\ProtocolException;
 use Socket;
 use Throwable;
 
@@ -27,6 +28,16 @@ final class ServerRuntime
     private readonly SocketServer $socketServer;
     private readonly Loop $loop;
     private readonly FrameCodec $codec;
+
+    /**
+     * @var array<string, string>
+     */
+    private array $receiveBuffers = [];
+
+    /**
+     * @var array<string, array{opcode: Opcode, payload: string}>
+     */
+    private array $fragmentedMessages = [];
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -64,6 +75,7 @@ final class ServerRuntime
         $this->loop->stop();
 
         foreach ($this->connections->all() as $connection) {
+            unset($this->receiveBuffers[$connection->id()], $this->fragmentedMessages[$connection->id()]);
             $connection->close();
             $this->connections->remove($connection->id());
         }
@@ -167,7 +179,15 @@ final class ServerRuntime
         }
 
         try {
-            $frames = $this->codec->decodeAll($data);
+            $connectionId = $connection->id();
+            $buffer = ($this->receiveBuffers[$connectionId] ?? '') . $data;
+            [$frames, $remaining] = $this->codec->decodeAvailable($buffer);
+
+            $this->receiveBuffers[$connectionId] = $remaining;
+
+            if (strlen($remaining) > $this->config->maxPayloadBytes + 16) {
+                throw new ProtocolException('WebSocket receive buffer exceeds the configured maximum size.');
+            }
 
             foreach ($frames as $frame) {
                 if (!$this->handleFrame($connection, $frame)) {
@@ -194,6 +214,56 @@ final class ServerRuntime
             return false;
         }
 
+        if ($frame->opcode === Opcode::TEXT) {
+            if ($frame->fin) {
+                $this->dispatcher->dispatch(new MessageReceived($connection, $frame));
+
+                return true;
+            }
+
+            $this->fragmentedMessages[$connection->id()] = [
+                'opcode' => Opcode::TEXT,
+                'payload' => $frame->payload,
+            ];
+
+            return true;
+        }
+
+        if ($frame->opcode === Opcode::CONTINUATION) {
+            $connectionId = $connection->id();
+            $fragment = $this->fragmentedMessages[$connectionId] ?? null;
+
+            if ($fragment === null) {
+                throw new ProtocolException('Unexpected WebSocket continuation frame.');
+            }
+
+            $payload = $fragment['payload'] . $frame->payload;
+
+            if (strlen($payload) > $this->config->maxPayloadBytes) {
+                unset($this->fragmentedMessages[$connectionId]);
+
+                throw new ProtocolException('WebSocket fragmented payload exceeds the configured maximum size.');
+            }
+
+            if (!$frame->fin) {
+                $this->fragmentedMessages[$connectionId] = [
+                    'opcode' => $fragment['opcode'],
+                    'payload' => $payload,
+                ];
+
+                return true;
+            }
+
+            unset($this->fragmentedMessages[$connectionId]);
+
+            $this->dispatcher->dispatch(new MessageReceived(
+                $connection,
+                new Frame(true, $fragment['opcode'], $payload, $frame->masked),
+            ));
+
+            return true;
+        }
+
         $this->dispatcher->dispatch(new MessageReceived($connection, $frame));
 
         return true;
@@ -201,6 +271,8 @@ final class ServerRuntime
 
     private function closeConnection(Connection $connection): void
     {
+        unset($this->receiveBuffers[$connection->id()], $this->fragmentedMessages[$connection->id()]);
+
         $connection->close();
         $this->connections->remove($connection->id());
         $this->dispatcher->dispatch(new ConnectionClosed($connection));

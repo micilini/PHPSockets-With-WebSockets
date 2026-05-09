@@ -91,3 +91,56 @@ This example is intentionally simple.
 Message receipts are browser-only example receipts. They are not persisted and do not represent a full per-user room read history.
 
 It only demonstrates the global chat flow. Private direct messages and private group rooms will be demonstrated in later examples.
+
+## Composer actions
+
+The message input includes a left-side action button.
+
+It opens:
+
+- Emoji picker.
+- File picker.
+
+Allowed files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max size:
+
+```txt
+2 MB
+```
+
+All user-provided text continues to be rendered safely.
+
+## Attachment composer behavior
+
+Selecting a file does not send it immediately.
+
+The selected file appears as a pending attachment in the composer. The user can add a text caption and click `Send`.
+
+Supported files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max file size:
+
+```txt
+2 MB
+```
+
+Each delivered file message includes a download button.
+
+Attachments are transported as JSON text-frame envelopes with base64 content. The chat core does not accept binary WebSocket frames for chat messages in this version.

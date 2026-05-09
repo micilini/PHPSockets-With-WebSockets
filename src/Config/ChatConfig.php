@@ -14,6 +14,12 @@ final readonly class ChatConfig
         public int $maxPrivateGroupMembers,
         public bool $allowGuestSessions,
         public int $historyLimit,
+        public int $maxAttachmentBytes,
+        public int $maxAttachmentFileNameLength,
+        /**
+         * @var list<string>
+         */
+        public array $allowedAttachmentMimeTypes,
     ) {
         if ($this->maxDisplayNameLength < 1) {
             throw new InvalidArgumentException('Maximum display name length must be greater than zero.');
@@ -30,14 +36,32 @@ final readonly class ChatConfig
         if ($this->historyLimit < 0) {
             throw new InvalidArgumentException('History limit cannot be negative.');
         }
+
+        if ($this->maxAttachmentBytes < 1) {
+            throw new InvalidArgumentException('Maximum attachment size must be greater than zero.');
+        }
+
+        if ($this->maxAttachmentFileNameLength < 1) {
+            throw new InvalidArgumentException('Maximum attachment file name length must be greater than zero.');
+        }
+
+        if ($this->allowedAttachmentMimeTypes === []) {
+            throw new InvalidArgumentException('At least one attachment MIME type must be allowed.');
+        }
     }
 
+    /**
+     * @param list<string>|null $allowedAttachmentMimeTypes
+     */
     public static function new(
         int $maxDisplayNameLength = 40,
         int $maxRoomNameLength = 80,
         int $maxPrivateGroupMembers = 20,
         bool $allowGuestSessions = true,
         int $historyLimit = 50,
+        int $maxAttachmentBytes = 2097152,
+        int $maxAttachmentFileNameLength = 180,
+        ?array $allowedAttachmentMimeTypes = null,
     ): self {
         return new self(
             maxDisplayNameLength: $maxDisplayNameLength,
@@ -45,6 +69,15 @@ final readonly class ChatConfig
             maxPrivateGroupMembers: $maxPrivateGroupMembers,
             allowGuestSessions: $allowGuestSessions,
             historyLimit: $historyLimit,
+            maxAttachmentBytes: $maxAttachmentBytes,
+            maxAttachmentFileNameLength: $maxAttachmentFileNameLength,
+            allowedAttachmentMimeTypes: $allowedAttachmentMimeTypes ?? [
+                'image/png',
+                'image/jpeg',
+                'image/gif',
+                'application/pdf',
+                'text/plain',
+            ],
         );
     }
 }

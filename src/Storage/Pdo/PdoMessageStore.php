@@ -28,7 +28,7 @@ final readonly class PdoMessageStore implements MessageStoreInterface
             'room_id' => $message->roomId,
             'from_user_id' => $message->fromUserId,
             'kind' => $message->kind,
-            'body' => $message->body,
+            'body' => $this->encodeBody($message->body),
             'metadata_json' => json_encode($message->metadata, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'created_at' => $message->createdAt->format(DATE_ATOM),
         ]);
@@ -67,10 +67,49 @@ final readonly class PdoMessageStore implements MessageStoreInterface
             roomId: (string) $row['room_id'],
             fromUserId: (string) $row['from_user_id'],
             kind: (string) $row['kind'],
-            body: $row['body'] === null ? null : (string) $row['body'],
+            body: $this->decodeBody($row['body'] === null ? null : (string) $row['body'], (string) $row['kind']),
             createdAt: new DateTimeImmutable((string) $row['created_at']),
             metadata: $this->decodeMetadata((string) $row['metadata_json']),
         );
+    }
+
+    /**
+     * @param string|array<string, mixed>|null $body
+     */
+    private function encodeBody(string|array|null $body): ?string
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        if (is_array($body)) {
+            return json_encode($body, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        }
+
+        return $body;
+    }
+
+    /**
+     * @return string|array<string, mixed>|null
+     */
+    private function decodeBody(?string $body, string $kind): string|array|null
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        if ($kind !== 'file') {
+            return $body;
+        }
+
+        $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     /**
