@@ -17,6 +17,8 @@ final class PayloadValidator
         'message.direct',
         'room.create',
         'room.message',
+        'typing.start',
+        'typing.stop',
     ];
 
     public function assertEnvelope(MessageEnvelope $envelope): void

@@ -40,6 +40,22 @@ final class FrameCodecTest extends TestCase
         self::assertSame($payload, $frame->payload);
     }
 
+    public function testMultipleClientFramesInSingleBufferAreDecoded(): void
+    {
+        $codec = new FrameCodec();
+        $firstPayload = '{"type":"typing.start","payload":{"roomId":"global"}}';
+        $secondPayload = '{"type":"message.global","payload":{"text":"Hello"}}';
+
+        $frames = $codec->decodeAll(
+            $this->maskedFrame(Opcode::TEXT, $firstPayload)
+            . $this->maskedFrame(Opcode::TEXT, $secondPayload)
+        );
+
+        self::assertCount(2, $frames);
+        self::assertSame($firstPayload, $frames[0]->payload);
+        self::assertSame($secondPayload, $frames[1]->payload);
+    }
+
     public function testServerTextFrameIsEncodedWithoutMask(): void
     {
         $codec = new FrameCodec();

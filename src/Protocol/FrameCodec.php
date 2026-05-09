@@ -17,12 +17,39 @@ final readonly class FrameCodec
 
     public function decode(string $data, bool $fromClient = true): Frame
     {
-        if (strlen($data) < 2) {
+        [$frame] = $this->decodeFrameAt($data, $fromClient, 0);
+
+        return $frame;
+    }
+
+    /**
+     * @return list<Frame>
+     */
+    public function decodeAll(string $data, bool $fromClient = true): array
+    {
+        $frames = [];
+        $offset = 0;
+        $length = strlen($data);
+
+        while ($offset < $length) {
+            [$frame, $offset] = $this->decodeFrameAt($data, $fromClient, $offset);
+            $frames[] = $frame;
+        }
+
+        return $frames;
+    }
+
+    /**
+     * @return array{0: Frame, 1: int}
+     */
+    private function decodeFrameAt(string $data, bool $fromClient, int $offset): array
+    {
+        if (strlen($data) < $offset + 2) {
             throw new ProtocolException('Incomplete WebSocket frame header.');
         }
 
-        $firstByte = ord($data[0]);
-        $secondByte = ord($data[1]);
+        $firstByte = ord($data[$offset]);
+        $secondByte = ord($data[$offset + 1]);
         $fin = ($firstByte & 0x80) === 0x80;
         $reservedBits = $firstByte & 0x70;
 
@@ -43,7 +70,7 @@ final readonly class FrameCodec
         }
 
         $payloadLength = $secondByte & 0x7F;
-        $offset = 2;
+        $offset += 2;
 
         if ($payloadLength === 126) {
             $this->assertAvailableBytes($data, $offset, 2);
@@ -100,7 +127,7 @@ final readonly class FrameCodec
             $payload = self::applyMask($payload, $maskingKey);
         }
 
-        return new Frame($fin, $opcode, $payload, $masked);
+        return [new Frame($fin, $opcode, $payload, $masked), $offset + $payloadLength];
     }
 
     public function encode(Frame $frame, bool $mask = false): string
