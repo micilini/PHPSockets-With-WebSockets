@@ -55,7 +55,15 @@
             <strong>Global Room</strong>
             <small>Everyone online</small>
           </span>
+          <span class="unread-badge d-none"></span>
         </button>
+
+        <div class="sidebar-section">
+          <button id="newPrivateRoomButton" class="btn btn-primary w-100" type="button">+ New private room</button>
+        </div>
+
+        <div class="sidebar-label">Private rooms</div>
+        <div id="groupRoomsList" class="group-rooms-list"></div>
 
         <div class="sidebar-label">Online users</div>
         <div id="usersList" class="users-list"></div>
@@ -95,6 +103,33 @@
           <span>Private group rooms come in the next phase.</span>
         </div>
       </aside>
+    </section>
+
+    <section id="privateRoomModal" class="room-modal d-none" aria-hidden="true">
+      <div class="room-modal-backdrop" data-close-room-modal="true"></div>
+
+      <div class="room-modal-card panel">
+        <div class="panel-header compact">
+          <div>
+            <h2>Create private room</h2>
+            <p>Select online users. You will be included automatically.</p>
+          </div>
+
+          <button id="closePrivateRoomModalButton" class="btn btn-sm btn-outline-light" type="button">Close</button>
+        </div>
+
+        <form id="privateRoomForm">
+          <div class="mb-3">
+            <label for="privateRoomNameInput" class="form-label">Room name, optional</label>
+            <input id="privateRoomNameInput" class="form-control" type="text" maxlength="80" autocomplete="off" placeholder="Example: Project team">
+          </div>
+
+          <div class="room-users-header">Online users</div>
+          <div id="privateRoomUsersList" class="room-users-list"></div>
+
+          <button id="createPrivateRoomButton" class="btn btn-primary w-100 mt-3" type="submit" disabled>Create room</button>
+        </form>
+      </div>
     </section>
   </main>
 

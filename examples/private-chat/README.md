@@ -8,8 +8,11 @@ It demonstrates:
 - Online users list.
 - Global room.
 - Private direct 1:1 conversations.
+- Private group rooms with selected online users.
 - Direct messages delivered only to the sender and the selected recipient.
-- Typing indicators for global and direct conversations.
+- Group messages delivered only to selected members.
+- Unread badges for global, direct and private group conversations.
+- Typing indicators for global, direct and private group conversations.
 - Simple message receipts for sent, received and read states.
 - Safe rendering with `textContent`.
 - Plain HTML, CSS and JavaScript.
@@ -75,8 +78,40 @@ Expected behavior:
 - Duplicate names are rejected.
 - User messages are rendered safely without `innerHTML`.
 
+## Private group rooms
+
+PrivateChat also supports private group rooms.
+
+A user can click `+ New private room`, select online users, optionally name the room, and create a private conversation.
+
+Only selected members receive the room and its messages.
+
+## Manual group test
+
+Open four browser tabs:
+
+```txt
+Tab 1: William
+Tab 2: Ana
+Tab 3: Bruno
+Tab 4: Carla
+```
+
+Expected behavior:
+
+- William creates a room with Ana and Bruno.
+- William, Ana and Bruno see the new room.
+- Carla does not see the room.
+- Messages in that room are delivered only to William, Ana and Bruno.
+- Carla receives no group messages.
+- Unread badges appear when a message arrives in a room that is not currently open.
+
+## Unread badges
+
+PrivateChat displays unread badges for Global Room, direct conversations and private group rooms.
+
+Badges increase while a conversation is not open and reset when the conversation is opened.
+
 ## Important notes
 
-This phase implements direct 1:1 private messaging.
-
-Private group rooms are implemented in the next phase.
+This phase implements direct 1:1 private messaging and private group rooms.

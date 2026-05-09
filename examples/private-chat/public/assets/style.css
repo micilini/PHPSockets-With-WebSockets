@@ -212,6 +212,7 @@ body {
 
 .conversation-item,
 .user-item {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
@@ -281,6 +282,19 @@ body {
   text-transform: uppercase;
 }
 
+.sidebar-section {
+  margin-bottom: 14px;
+}
+
+.group-rooms-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .users-list {
   display: grid;
   gap: 10px;
@@ -294,11 +308,32 @@ body {
 }
 
 .user-you {
-  margin-left: auto;
+  margin-left: 0;
   color: #6ee7b7;
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #052e16;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(34, 197, 94, 0.26);
+}
+
+.unread-badge.d-none {
+  display: none;
 }
 
 .chat-panel {
@@ -454,6 +489,82 @@ body {
 
 .info-card strong {
   color: #f8fafc;
+}
+
+.compact-empty {
+  min-height: 44px;
+  height: auto;
+  font-size: 0.86rem;
+}
+
+.room-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.room-modal.d-none {
+  display: none;
+}
+
+.room-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.room-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-users-header {
+  color: #a7b3c6;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.room-users-list {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.room-user-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  cursor: pointer;
+}
+
+.room-user-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #22c55e;
+}
+
+.room-user-option-name {
+  color: #e2e8f0;
+  font-weight: 800;
 }
 
 @keyframes typingDots {

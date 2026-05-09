@@ -31,10 +31,13 @@ final readonly class PrivateGroupRouter
         );
     }
 
-    public function send(string $roomId, string $fromUserId, string $text): ChatMessage
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    public function send(string $roomId, string $fromUserId, string $text, array $metadata = []): ChatMessage
     {
         $room = $this->rooms->assertMember($roomId, $fromUserId);
-        $message = ChatMessage::text($room->id, $fromUserId, $text);
+        $message = ChatMessage::text($room->id, $fromUserId, $text, $metadata);
 
         $this->messages->save($message);
 

@@ -122,7 +122,7 @@ Then open:
 http://127.0.0.1:8002
 ```
 
-PrivateChat demonstrates global chat plus direct 1:1 private conversations. A direct message is delivered only to the sender and the selected recipient.
+PrivateChat demonstrates global chat, direct 1:1 conversations, private group rooms, unread badges, typing indicators and simple message receipts.
 
 ## Requirements
 
