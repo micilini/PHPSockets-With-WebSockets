@@ -1,41 +1,68 @@
 # PHPSockets With WebSockets
 
-Here we will see how to create a websocket server working with a php sockets.
+PHPSockets With WebSockets is being reborn as a modern native PHP WebSocket and realtime chat library.
 
-The file is meant to be understood in a simple and effective way.
+The original project was created in 2016 as a simple educational experiment showing how to build a WebSocket server with PHP sockets, without Node.js and without socket.io.
 
-<h3>EasyChat or MediumChat?</h3>
+This repository is now being progressively redesigned as a Composer package with a clean architecture, modern PHP support, examples, tests, storage adapters, CLI commands, Laravel integration, and a stronger chat-focused developer experience.
 
-You see that has 2 folders: EasyChat and MediumChat, I will explain the difference below:
+## Current status
 
-<b>EasyChat -></b> is a chat created to beginners, since it has a simple code to understand and easy to use.
+This repository is currently in the legacy preservation phase.
 
-<b>MediumChat -></b> is a chat created for people with intermediate level of knowledge of PHP, this is separated by classes and complex functions.
+The original 2016 implementation has been moved to the `legacy/` directory so it can be preserved as historical reference while the new library is built from scratch in future phases.
 
-<h3>How to setup?</h3>
+## Legacy code
 
-Testing in your local apache all ports are avaiable (I hope so).
+The original code is available here:
 
-To configure host in WebSockets open aplicacao.js and find the <code>var host = 'ws://localhost:8080';</code> in my case is listening in localhost in port 8080.
+```txt
+legacy/EasyChat
+legacy/MediumChat
+legacy/README-2016.md
+```
 
-To configure host in PHP Sockets open server.php and find the <code>$adr = "localhost"; $port = 8080;</code> in my case is running in localhost in port 8080.
+`EasyChat` contains the beginner-friendly version of the original global chat.
 
-<blockquote>If you are using the <b>MediumChat</b>, you need to open server.php file and go to the last line code and find <code>$Server->wsStartServer('127.0.0.1', 8080);</code> 127.0.0.1 is your localhost and 8080 is the port</blockquote>
+`MediumChat` contains the more advanced object-oriented version with callbacks and a better separation between the WebSocket server and the chat behavior.
 
-(The port and address need to be the same - If the websockets is in port 6570, php sockets need to be in port 6570)
+## Why the legacy code was moved
 
+The old project was designed for PHP 5 and browser-based local testing. At that time, the server could be started by opening `server.php` in the browser or by running it manually.
 
-<h3>How to Test It?</h3>
+The new version will not require keeping a browser tab open to run the WebSocket server.
 
-<ul>1. I'm using WampServer (Version: 2.4.9, PHP: 5.5.12)</ul>
-<ul>2. You need to download the files from my github and put inside your apache, in my case, inside www folder. (C://wamp/www/Sockets)</ul>
-<ul>3. Great now you have to open in your browser the index.php file, when you do this you'll receive this message in red: "Disconectado do WebSocket.", this is because you don´t setup the server yet.</ul>
-<ul>4. To setup the server open the file server.php in your browser, and you´ll see that page in a infinite loop (loading....loading....loading in browser), cool! The socket is running!</ul>
-<ul>5. Now go to index.php file and if you receive a message in color green, you are connected with the server :D</ul>
+The future official runtime will be based on CLI execution.
 
+## Modernization goals
 
-<h3>Common questions</h3>
+The new implementation will be developed gradually and will include:
 
-<ul>This chat is private? <b>No, it is a global chat</b>.</ul>
-<ul>When private version of this chat will come out? <b>It is still a puzzle to me, but will be available soon.</b>.</ul>
-<ul>This chat use node.js or socket.io? <b>No, I use php and javascript, and is working as well as they</b></ul>
+- Composer package support.
+- PHP 8.2+ support.
+- PSR-4 namespaces.
+- Native WebSocket protocol implementation.
+- Server runtime with connection lifecycle events.
+- Chat core with unique display names.
+- Global chat example.
+- Medium chat example with callbacks.
+- Private chat example.
+- Private group rooms with selected online participants.
+- Storage adapters.
+- CLI commands.
+- Laravel integration.
+- Tests, static analysis, and CI.
+
+## Roadmap
+
+Implementation will follow the project roadmap phase by phase.
+
+The first phase preserves the legacy code and creates a clean baseline.
+
+Future phases will introduce Composer, source code structure, WebSocket protocol handling, server runtime, chat features, examples, persistence, CLI tooling, and release documentation.
+
+## Important note
+
+The legacy implementation is kept for historical and educational purposes.
+
+The new library will be implemented separately and should not depend on the old code structure.
