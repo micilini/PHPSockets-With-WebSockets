@@ -78,11 +78,16 @@ Expected behavior:
 - Both users should enter the chat.
 - Both users should appear in the online users list.
 - Messages sent by one tab should appear in the other tab.
+- Own messages should show a message status icon.
+- When the server echoes the message, the status should move from sent to received.
+- When another browser receives the message, the sender should see the message as read.
 - Duplicate display names should be rejected.
 - User messages must be rendered safely without `innerHTML`.
 
 ## Important notes
 
 This example is intentionally simple.
+
+Message receipts are browser-only example receipts. They are not persisted and do not represent a full per-user room read history.
 
 It only demonstrates the global chat flow. Private direct messages and private group rooms will be demonstrated in later examples.

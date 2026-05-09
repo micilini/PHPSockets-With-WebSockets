@@ -15,6 +15,7 @@ final class PayloadValidator
         'auth.join',
         'message.global',
         'message.direct',
+        'message.read',
         'room.create',
         'room.message',
         'typing.start',
@@ -58,6 +59,36 @@ final class PayloadValidator
     public function roomId(MessageEnvelope $envelope): string
     {
         return $this->requiredString($envelope, 'roomId');
+    }
+
+    public function messageId(MessageEnvelope $envelope): string
+    {
+        return $this->requiredString($envelope, 'messageId');
+    }
+
+    public function clientMessageId(MessageEnvelope $envelope): ?string
+    {
+        $value = $envelope->payload['clientMessageId'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            throw new InvalidPayloadException('Payload field clientMessageId must be a string.');
+        }
+
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (strlen($value) > 120) {
+            throw new InvalidPayloadException('Payload field clientMessageId is too long.');
+        }
+
+        return $value;
     }
 
     public function roomName(MessageEnvelope $envelope): ?string

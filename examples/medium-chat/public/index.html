@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PHPSockets EasyChat</title>
+  <title>PHPSockets MediumChat</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="./assets/style.css" rel="stylesheet">
 </head>
 <body>
   <main class="app-shell">
     <section class="hero-card">
-      <div class="hero-content">
+      <div>
         <span class="eyebrow">PHPSockets With WebSockets</span>
-        <h1>EasyChat</h1>
-        <p>A modern native PHP WebSocket chat example built with Composer, PHP sockets and plain JavaScript.</p>
+        <h1>MediumChat</h1>
+        <p>Intermediate chat example with high-level callbacks, socket lifecycle logs and realtime browser diagnostics.</p>
       </div>
 
       <div id="connectionStatus" class="status-pill status-offline">Disconnected</div>
@@ -23,11 +23,11 @@
 
     <section id="loginPanel" class="panel login-panel">
       <div class="panel-header">
-        <h2>Enter the chat</h2>
-        <p>Choose a unique display name. Duplicate names are blocked by the server.</p>
+        <h2>Enter MediumChat</h2>
+        <p>This example keeps the same global chat flow, but the server also logs custom chat events.</p>
       </div>
 
-      <form id="joinForm" class="login-form">
+      <form id="joinForm">
         <div class="mb-3">
           <label for="displayNameInput" class="form-label">Display name</label>
           <input id="displayNameInput" class="form-control form-control-lg" type="text" maxlength="40" autocomplete="off" placeholder="Choose your display name" required>
@@ -42,21 +42,26 @@
       </form>
     </section>
 
-    <section id="chatPanel" class="chat-layout d-none">
-      <aside class="panel users-panel">
+    <section id="chatPanel" class="medium-layout d-none">
+      <aside class="panel side-panel">
         <div class="panel-header compact">
           <h2>Online users</h2>
           <span id="onlineCount" class="count-pill">0</span>
         </div>
 
         <div id="usersList" class="users-list"></div>
+
+        <div class="debug-note">
+          <strong>Server callbacks:</strong>
+          <span>Watch the terminal running <code>server.php</code> to see socket and chat events.</span>
+        </div>
       </aside>
 
       <section class="panel chat-panel">
         <div class="chat-header">
           <div>
             <span class="eyebrow">Global room</span>
-            <h2>Public conversation</h2>
+            <h2>Customizable realtime flow</h2>
           </div>
 
           <div class="current-user">
@@ -65,7 +70,6 @@
         </div>
 
         <div id="messagesList" class="messages-list" aria-live="polite"></div>
-
         <div id="typingIndicator" class="typing-indicator d-none" aria-live="polite"></div>
 
         <form id="messageForm" class="message-form">
@@ -73,6 +77,15 @@
           <button class="btn btn-primary btn-lg" type="submit">Send</button>
         </form>
       </section>
+
+      <aside class="panel event-panel">
+        <div class="panel-header compact">
+          <h2>Browser events</h2>
+          <button id="clearEventsButton" class="btn btn-sm btn-outline-light" type="button">Clear</button>
+        </div>
+
+        <div id="eventLog" class="event-log"></div>
+      </aside>
     </section>
   </main>
 

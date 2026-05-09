@@ -17,9 +17,11 @@ const state = {
 const elements = {
   alertBox: document.getElementById('alertBox'),
   chatPanel: document.getElementById('chatPanel'),
+  clearEventsButton: document.getElementById('clearEventsButton'),
   connectionStatus: document.getElementById('connectionStatus'),
   currentDisplayName: document.getElementById('currentDisplayName'),
   displayNameInput: document.getElementById('displayNameInput'),
+  eventLog: document.getElementById('eventLog'),
   joinButton: document.getElementById('joinButton'),
   joinForm: document.getElementById('joinForm'),
   loginPanel: document.getElementById('loginPanel'),
@@ -73,6 +75,10 @@ elements.messageInput.addEventListener('blur', () => {
   stopTyping();
 });
 
+elements.clearEventsButton.addEventListener('click', () => {
+  elements.eventLog.replaceChildren();
+});
+
 window.addEventListener('beforeunload', () => {
   stopTyping();
 
@@ -84,12 +90,14 @@ window.addEventListener('beforeunload', () => {
 renderEmptyMessages();
 renderTypingIndicator();
 setStatus('Disconnected', 'offline');
+logBrowserEvent('browser.ready');
 
 function connect(serverUrl, displayName) {
   disconnect();
   clearAlert();
   setStatus('Connecting', 'connecting');
   setJoinFormEnabled(false);
+  logBrowserEvent('socket.connecting');
 
   try {
     state.socket = new WebSocket(serverUrl);
@@ -97,10 +105,12 @@ function connect(serverUrl, displayName) {
     setJoinFormEnabled(true);
     setStatus('Disconnected', 'offline');
     showAlert('Invalid WebSocket server URL.', 'danger');
+    logBrowserEvent('socket.error');
     return;
   }
 
   state.socket.addEventListener('open', () => {
+    logBrowserEvent('socket.open');
     sendEnvelope('auth.join', { displayName });
   });
 
@@ -111,6 +121,7 @@ function connect(serverUrl, displayName) {
   state.socket.addEventListener('close', () => {
     const hadCurrentUser = Boolean(state.currentUser);
 
+    logBrowserEvent('socket.close');
     setStatus('Disconnected', 'offline');
 
     if (hadCurrentUser) {
@@ -123,6 +134,7 @@ function connect(serverUrl, displayName) {
   });
 
   state.socket.addEventListener('error', () => {
+    logBrowserEvent('socket.error');
     setStatus('Connection error', 'offline');
 
     if (!state.currentUser) {
@@ -153,6 +165,8 @@ function handleServerMessage(rawMessage) {
     showAlert('The server sent an invalid JSON message.', 'danger');
     return;
   }
+
+  logBrowserEvent(envelope.type || 'server.unknown');
 
   switch (envelope.type) {
     case 'session.accepted':
@@ -353,7 +367,41 @@ function sendEnvelope(type, payload) {
     return;
   }
 
+  logBrowserEvent(clientEventName(type));
   state.socket.send(JSON.stringify({ type, payload }));
+}
+
+function clientEventName(type) {
+  const clientEvents = {
+    'auth.join': 'client.auth.join',
+    'message.global': 'client.message.global',
+    'message.read': 'client.message.read',
+    'typing.start': 'client.typing.start',
+    'typing.stop': 'client.typing.stop',
+  };
+
+  return clientEvents[type] || `client.${type}`;
+}
+
+function logBrowserEvent(name) {
+  const item = document.createElement('div');
+  item.className = 'event-item';
+
+  const title = document.createElement('div');
+  title.className = 'event-title';
+  title.textContent = name;
+
+  const time = document.createElement('div');
+  time.className = 'event-time';
+  time.textContent = formatTime(new Date().toISOString());
+
+  item.appendChild(title);
+  item.appendChild(time);
+  elements.eventLog.prepend(item);
+
+  while (elements.eventLog.children.length > 80) {
+    elements.eventLog.lastElementChild.remove();
+  }
 }
 
 function createClientMessageId() {
