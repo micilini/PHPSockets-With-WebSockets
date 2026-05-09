@@ -164,6 +164,30 @@ Users can:
 
 The initial attachment transport uses base64 payloads over WebSocket with strict limits. Larger uploads and chunked binary frames are planned for future versions.
 
+## Attachment composer behavior
+
+Selecting a file does not send it immediately.
+
+The selected file appears as a pending attachment in the composer. The user can add a text caption and click `Send`.
+
+Supported files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max file size:
+
+```txt
+512 KB
+```
+
+Each delivered file message includes a download button.
+
 ## Requirements
 
 The modern version targets:

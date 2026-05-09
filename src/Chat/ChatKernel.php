@@ -350,18 +350,28 @@ final class ChatKernel
         Connection $connection,
         MessageEnvelope $envelope,
     ): void {
-        $fromUserId = $this->requireAuthenticated($connection);
-        $attachmentPayload = $this->validator->attachmentPayload($envelope);
-        $fileName = $this->attachmentValidator->fileName($attachmentPayload['fileName'] ?? null);
-        $mimeType = $this->attachmentValidator->mimeType($attachmentPayload['mimeType'] ?? null);
-        $sizeBytes = $this->attachmentValidator->sizeBytes($attachmentPayload['sizeBytes'] ?? null);
-        $content = $this->attachmentValidator->decodedContent($attachmentPayload['contentBase64'] ?? null, $sizeBytes);
-        $target = $this->resolveFileMessageTarget($fromUserId, $envelope);
-        $clientMessageId = $this->validator->clientMessageId($envelope);
-        $metadata = [];
+        try {
+            $fromUserId = $this->requireAuthenticated($connection);
+            $attachmentPayload = $this->validator->attachmentPayload($envelope);
+            $fileName = $this->attachmentValidator->fileName($attachmentPayload['fileName'] ?? null);
+            $mimeType = $this->attachmentValidator->mimeType($attachmentPayload['mimeType'] ?? null);
+            $sizeBytes = $this->attachmentValidator->sizeBytes($attachmentPayload['sizeBytes'] ?? null);
+            $content = $this->attachmentValidator->decodedContent($attachmentPayload['contentBase64'] ?? null, $sizeBytes);
+            $caption = $this->validator->optionalText($envelope, 'caption');
+            $target = $this->resolveFileMessageTarget($fromUserId, $envelope);
+            $clientMessageId = $this->validator->clientMessageId($envelope);
+            $metadata = [];
 
-        if ($clientMessageId !== null) {
-            $metadata['clientMessageId'] = $clientMessageId;
+            if ($clientMessageId !== null) {
+                $metadata['clientMessageId'] = $clientMessageId;
+            }
+        } catch (InvalidPayloadException $exception) {
+            $this->sendEnvelope($connection, MessageEnvelope::server('attachment.rejected', [
+                'message' => $exception->getMessage(),
+                'maxAttachmentBytes' => $this->config->maxAttachmentBytes,
+            ]));
+
+            return;
         }
 
         $draftMessage = ChatMessage::file(
@@ -381,7 +391,7 @@ final class ChatKernel
             roomId: $draftMessage->roomId,
             fromUserId: $draftMessage->fromUserId,
             kind: $draftMessage->kind,
-            body: $this->fileMessageBody($attachment, $content),
+            body: $this->fileMessageBody($attachment, $content, $caption),
             createdAt: $draftMessage->createdAt,
             metadata: $draftMessage->metadata,
         );
@@ -629,7 +639,7 @@ final class ChatKernel
     /**
      * @return array<string, mixed>
      */
-    private function fileMessageBody(Attachment $attachment, string $content): array
+    private function fileMessageBody(Attachment $attachment, string $content, string $caption): array
     {
         return [
             'attachmentId' => $attachment->id,
@@ -637,6 +647,8 @@ final class ChatKernel
             'mimeType' => $attachment->mimeType,
             'sizeBytes' => $attachment->sizeBytes,
             'previewDataUrl' => $this->previewDataUrl($attachment->mimeType, $content),
+            'downloadDataUrl' => 'data:' . $attachment->mimeType . ';base64,' . base64_encode($content),
+            'caption' => $caption,
         ];
     }
 

@@ -12,6 +12,7 @@ const state = {
   messageElements: new Map(),
   messageReadBy: new Map(),
   unreadCounts: new Map(),
+  selectedAttachment: null,
   isTyping: false,
   typingStopTimer: null,
   lastTypingStartSentAt: 0,
@@ -74,9 +75,12 @@ const elements = {
   privateRoomNameInput: document.getElementById('privateRoomNameInput'),
   privateRoomUsersList: document.getElementById('privateRoomUsersList'),
   serverUrlInput: document.getElementById('serverUrlInput'),
+  selectedAttachmentPreview: document.getElementById('selectedAttachmentPreview'),
   typingIndicator: document.getElementById('typingIndicator'),
   usersList: document.getElementById('usersList'),
 };
+
+let alertDismissTimer = null;
 
 elements.joinForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -115,19 +119,25 @@ elements.privateRoomForm.addEventListener('submit', (event) => {
   createPrivateRoomFromForm();
 });
 
-elements.messageForm.addEventListener('submit', (event) => {
+elements.messageForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const text = elements.messageInput.value.trim();
+  const selectedAttachment = state.selectedAttachment;
   const conversation = state.conversations.get(state.activeConversationId);
 
-  if (!text) {
+  if (!text && !selectedAttachment) {
     stopTyping();
     return;
   }
 
   if (!conversation) {
     showAlert('Choose a conversation before sending a message.', 'warning');
+    return;
+  }
+
+  if (selectedAttachment) {
+    await sendSelectedAttachment(text);
     return;
   }
 
@@ -952,8 +962,10 @@ function addPendingOwnMessage(text, clientMessageId, conversationId) {
   addMessage(message, conversationId);
 }
 
-function addPendingOwnFileMessage(file, clientMessageId, conversationId) {
+function addPendingOwnFileMessage(file, clientMessageId, conversationId, caption = '') {
   const conversation = state.conversations.get(conversationId);
+  const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+  const downloadUrl = URL.createObjectURL(file);
   const message = {
     id: clientMessageId,
     roomId: conversation && conversation.roomId ? conversation.roomId : 'global',
@@ -963,7 +975,9 @@ function addPendingOwnFileMessage(file, clientMessageId, conversationId) {
       fileName: file.name,
       mimeType: file.type,
       sizeBytes: file.size,
-      previewDataUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      previewDataUrl: previewUrl,
+      downloadDataUrl: downloadUrl,
+      caption,
     },
     metadata: { clientMessageId },
     createdAt: new Date().toISOString(),
@@ -1151,6 +1165,7 @@ function resetToLogin(keepDisplayName) {
   clearTypingState();
   closeComposerActionsMenu();
   closeEmojiPicker();
+  clearSelectedAttachment();
 
   elements.chatPanel.classList.add('d-none');
   elements.loginPanel.classList.remove('d-none');
@@ -1226,7 +1241,7 @@ function insertAtCursor(input, value) {
   handleTypingInput();
 }
 
-async function handleSelectedFile() {
+function handleSelectedFile() {
   const file = elements.fileInput.files && elements.fileInput.files[0]
     ? elements.fileInput.files[0]
     : null;
@@ -1247,24 +1262,111 @@ async function handleSelectedFile() {
     return;
   }
 
+  setSelectedAttachment(file);
+}
+
+function setSelectedAttachment(file) {
+  clearSelectedAttachment();
+
+  const previewUrl = file.type.startsWith('image/')
+    ? URL.createObjectURL(file)
+    : null;
+
+  state.selectedAttachment = { file, previewUrl };
+
+  renderSelectedAttachmentPreview();
+}
+
+function clearSelectedAttachment() {
+  if (state.selectedAttachment && state.selectedAttachment.previewUrl) {
+    URL.revokeObjectURL(state.selectedAttachment.previewUrl);
+  }
+
+  state.selectedAttachment = null;
+  renderSelectedAttachmentPreview();
+}
+
+function renderSelectedAttachmentPreview() {
+  elements.selectedAttachmentPreview.replaceChildren();
+
+  if (!state.selectedAttachment) {
+    elements.selectedAttachmentPreview.classList.add('d-none');
+    return;
+  }
+
+  const { file, previewUrl } = state.selectedAttachment;
+
+  elements.selectedAttachmentPreview.classList.remove('d-none');
+
+  const info = document.createElement('div');
+  info.className = 'selected-attachment-info';
+
+  const thumb = document.createElement('span');
+  thumb.className = 'selected-attachment-thumb';
+
+  if (previewUrl) {
+    const image = document.createElement('img');
+    image.src = previewUrl;
+    image.alt = file.name;
+    thumb.appendChild(image);
+  } else {
+    thumb.textContent = file.type === 'application/pdf' ? 'PDF' : 'TXT';
+  }
+
+  const text = document.createElement('div');
+  text.className = 'selected-attachment-text';
+
+  const name = document.createElement('strong');
+  name.textContent = file.name;
+
+  const meta = document.createElement('small');
+  meta.textContent = `${file.type || 'unknown'} - ${formatFileSize(file.size)}`;
+
+  text.appendChild(name);
+  text.appendChild(meta);
+  info.appendChild(thumb);
+  info.appendChild(text);
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'remove-attachment-button';
+  removeButton.textContent = 'Remove';
+
+  removeButton.addEventListener('click', () => {
+    clearSelectedAttachment();
+    elements.messageInput.focus();
+  });
+
+  elements.selectedAttachmentPreview.appendChild(info);
+  elements.selectedAttachmentPreview.appendChild(removeButton);
+}
+
+async function sendSelectedAttachment(caption) {
+  if (!state.selectedAttachment) {
+    return;
+  }
+
+  const { file } = state.selectedAttachment;
+  const conversationId = state.activeConversationId;
+
   try {
-    sendEnvelope('attachment.prepare', {
-      fileName: file.name,
-      mimeType: file.type,
-      sizeBytes: file.size,
-    });
+    clearLocalTypingStateBeforeSend();
 
     const contentBase64 = await readFileAsBase64(file);
     const clientMessageId = createClientMessageId();
 
-    addPendingOwnFileMessage(file, clientMessageId, state.activeConversationId);
-    sendEnvelope('message.file', fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64));
+    addPendingOwnFileMessage(file, clientMessageId, conversationId, caption);
+    sendEnvelope('message.file', fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64, caption));
+
+    elements.messageInput.value = '';
+    clearSelectedAttachment();
+    elements.messageInput.focus();
   } catch (error) {
     showAlert(error instanceof Error ? error.message : 'Failed to send file.', 'danger');
   }
 }
 
-function fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64) {
+function fileMessagePayloadForActiveConversation(file, clientMessageId, contentBase64, caption) {
   const conversation = state.conversations.get(state.activeConversationId);
   const attachment = {
     fileName: file.name,
@@ -1274,7 +1376,7 @@ function fileMessagePayloadForActiveConversation(file, clientMessageId, contentB
   };
 
   if (!conversation || conversation.type === 'global') {
-    return { scope: 'global', clientMessageId, attachment };
+    return { scope: 'global', clientMessageId, caption, attachment };
   }
 
   if (conversation.type === 'direct') {
@@ -1282,6 +1384,7 @@ function fileMessagePayloadForActiveConversation(file, clientMessageId, contentB
       scope: 'direct',
       toUserId: conversation.targetUserId,
       clientMessageId,
+      caption,
       attachment,
     };
   }
@@ -1290,6 +1393,7 @@ function fileMessagePayloadForActiveConversation(file, clientMessageId, contentB
     scope: 'room',
     roomId: conversation.roomId,
     clientMessageId,
+    caption,
     attachment,
   };
 }
@@ -1347,14 +1451,35 @@ function setStatus(label, mode) {
   elements.connectionStatus.classList.add(`status-${mode}`);
 }
 
-function showAlert(message, type) {
-  elements.alertBox.textContent = message;
+function showAlert(message, type = 'danger', autoDismissMs = 5000) {
+  if (alertDismissTimer) {
+    window.clearTimeout(alertDismissTimer);
+    alertDismissTimer = null;
+  }
+
   elements.alertBox.className = `alert app-alert alert-${type}`;
+  elements.alertBox.textContent = message;
+  elements.alertBox.classList.remove('d-none');
+
+  if (autoDismissMs > 0) {
+    alertDismissTimer = window.setTimeout(() => {
+      hideAlert();
+    }, autoDismissMs);
+  }
 }
 
 function clearAlert() {
+  hideAlert();
+}
+
+function hideAlert() {
+  if (alertDismissTimer) {
+    window.clearTimeout(alertDismissTimer);
+    alertDismissTimer = null;
+  }
+
+  elements.alertBox.classList.add('d-none');
   elements.alertBox.textContent = '';
-  elements.alertBox.className = 'alert app-alert d-none';
 }
 
 function renderUsers() {
@@ -1489,6 +1614,8 @@ function createFileMessageElement(body) {
   const mimeType = typeof body.mimeType === 'string' ? body.mimeType : 'application/octet-stream';
   const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : 0;
   const previewDataUrl = typeof body.previewDataUrl === 'string' ? body.previewDataUrl : null;
+  const downloadUrl = typeof body.downloadDataUrl === 'string' ? body.downloadDataUrl : previewDataUrl;
+  const caption = typeof body.caption === 'string' ? body.caption.trim() : '';
 
   if (previewDataUrl && mimeType.startsWith('image/')) {
     const image = document.createElement('img');
@@ -1519,6 +1646,23 @@ function createFileMessageElement(body) {
   info.appendChild(icon);
   info.appendChild(text);
   card.appendChild(info);
+
+  if (caption) {
+    const captionElement = document.createElement('p');
+    captionElement.className = 'file-message-caption';
+    captionElement.textContent = caption;
+    card.appendChild(captionElement);
+  }
+
+  if (downloadUrl) {
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'file-download-button';
+    downloadLink.href = downloadUrl;
+    downloadLink.download = fileName;
+    downloadLink.textContent = 'Download';
+    downloadLink.rel = 'noopener';
+    card.appendChild(downloadLink);
+  }
 
   return card;
 }

@@ -151,6 +151,30 @@ Files follow the active conversation context:
 
 All user-provided text continues to be rendered safely.
 
+## Attachment composer behavior
+
+Selecting a file does not send it immediately.
+
+The selected file appears as a pending attachment in the composer. The user can add a text caption and click `Send`.
+
+Supported files:
+
+```txt
+image/png
+image/jpeg
+image/gif
+application/pdf
+text/plain
+```
+
+Default max file size:
+
+```txt
+512 KB
+```
+
+Each delivered file message includes a download button.
+
 ## Important notes
 
 This phase implements direct 1:1 private messaging and private group rooms.

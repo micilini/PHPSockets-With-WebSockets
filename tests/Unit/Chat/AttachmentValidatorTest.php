@@ -33,6 +33,13 @@ final class AttachmentValidatorTest extends TestCase
         $validator->mimeType('application/x-msdownload');
     }
 
+    public function testAcceptsPdfMimeType(): void
+    {
+        $validator = new AttachmentValidator(ChatConfig::new());
+
+        self::assertSame('application/pdf', $validator->mimeType('application/pdf'));
+    }
+
     public function testRejectsOversizedAttachment(): void
     {
         $validator = new AttachmentValidator(ChatConfig::new(maxAttachmentBytes: 4));

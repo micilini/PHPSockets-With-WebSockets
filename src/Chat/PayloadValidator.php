@@ -110,6 +110,27 @@ final class PayloadValidator
         return $value;
     }
 
+    public function optionalText(MessageEnvelope $envelope, string $field, int $maxLength = 2000): string
+    {
+        $value = $envelope->payload[$field] ?? null;
+
+        if ($value === null) {
+            return '';
+        }
+
+        if (!is_string($value)) {
+            throw new InvalidPayloadException("Payload field {$field} must be a string.");
+        }
+
+        $text = trim($value);
+
+        if (strlen($text) > $maxLength) {
+            throw new InvalidPayloadException("Payload field {$field} is too long.");
+        }
+
+        return $text;
+    }
+
     public function roomName(MessageEnvelope $envelope): ?string
     {
         $name = $envelope->payload['name'] ?? null;

@@ -50,6 +50,7 @@ final class FileMessageTest extends TestCase
             'payload' => [
                 'scope' => 'global',
                 'clientMessageId' => 'client_file_123',
+                'caption' => 'Attached hello',
                 'attachment' => [
                     'fileName' => 'hello.txt',
                     'mimeType' => 'text/plain',
@@ -68,6 +69,8 @@ final class FileMessageTest extends TestCase
         self::assertSame('hello.txt', $message['body']['fileName'] ?? null);
         self::assertSame('text/plain', $message['body']['mimeType'] ?? null);
         self::assertSame(5, $message['body']['sizeBytes'] ?? null);
+        self::assertSame('Attached hello', $message['body']['caption'] ?? null);
+        self::assertIsString($message['body']['downloadDataUrl'] ?? null);
         self::assertArrayNotHasKey('contentBase64', $message['body']);
 
         $stored = $server->kernel()->messageStore()->messagesForRoom('global');
@@ -78,7 +81,7 @@ final class FileMessageTest extends TestCase
         self::assertSame('client_file_123', $stored[0]->metadata['clientMessageId'] ?? null);
     }
 
-    public function testOversizedFileMessageIsRejected(): void
+    public function testOversizedFileMessageIsRejectedWithoutGenericError(): void
     {
         $server = $this->server(ChatConfig::new(maxAttachmentBytes: 4));
         [$connection, $socket] = $this->authenticatedConnection($server, 'conn_william', 'William');
@@ -98,9 +101,41 @@ final class FileMessageTest extends TestCase
             ],
         ]);
 
-        $envelope = $this->receiveServerEnvelope($socket, 'error');
+        $envelope = $this->receiveServerEnvelope($socket, 'attachment.rejected');
 
         self::assertSame('Attachment exceeds the maximum allowed size.', $envelope['payload']['message'] ?? null);
+    }
+
+    public function testPdfFileMessageIsAcceptedWithDownloadDataUrl(): void
+    {
+        $server = $this->server();
+        [$connection, $socket] = $this->authenticatedConnection($server, 'conn_william', 'William');
+
+        $this->drainAvailableEnvelopes($socket);
+
+        $content = "%PDF-1.4\nsmall pdf\n";
+
+        $this->dispatchClientMessage($server, $connection, [
+            'type' => 'message.file',
+            'payload' => [
+                'scope' => 'global',
+                'attachment' => [
+                    'fileName' => 'sample.pdf',
+                    'mimeType' => 'application/pdf',
+                    'sizeBytes' => strlen($content),
+                    'contentBase64' => base64_encode($content),
+                ],
+            ],
+        ]);
+
+        $envelope = $this->receiveServerEnvelope($socket, 'message.received');
+        $message = $envelope['payload']['message'] ?? null;
+
+        self::assertIsArray($message);
+        self::assertSame('application/pdf', $message['body']['mimeType'] ?? null);
+        self::assertNull($message['body']['previewDataUrl'] ?? null);
+        self::assertStringStartsWith('data:application/pdf;base64,', (string) ($message['body']['downloadDataUrl'] ?? ''));
+        self::assertArrayNotHasKey('contentBase64', $message['body']);
     }
 
     private function server(?ChatConfig $config = null): ChatServer
