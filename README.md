@@ -183,6 +183,52 @@ hello
 
 Bots are intentionally simple in v1. They do not call external AI APIs or run asynchronous jobs.
 
+## Laravel integration
+
+PHPSockets can be installed inside Laravel applications through Composer package discovery.
+
+Publish the config:
+
+```bash
+php artisan vendor:publish --tag=phpsockets-config
+```
+
+Check the package status:
+
+```bash
+php artisan phpsockets:status
+```
+
+Run SQLite migrations:
+
+```bash
+php artisan phpsockets:migrate --driver=sqlite
+```
+
+Start the WebSocket chat server from Laravel:
+
+```bash
+php artisan phpsockets:serve
+```
+
+The package registers:
+
+- `Micilini\PhpSockets\Laravel\PhpSocketsServiceProvider`
+- `Micilini\PhpSockets\Laravel\PhpSocketsFacade`
+- `phpsockets:serve`
+- `phpsockets:migrate`
+- `phpsockets:status`
+
+Example usage:
+
+```php
+use Micilini\PhpSockets\Laravel\PhpSocketsFacade as PhpSockets;
+
+PhpSockets::bots();
+```
+
+Laravel is optional. The native PHP core continues to work standalone.
+
 ## Emoji and small attachment support
 
 The chat examples support a composer action button next to the message input.
