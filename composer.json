@@ -1,5 +1,5 @@
 {
-  "name": "micilini/php-sockets-with-websockets",
+  "name": "micilini/php-websockets",
   "description": "Native PHP WebSocket and realtime chat library built from scratch. Works standalone or with Laravel.",
   "type": "library",
   "license": "MIT",
