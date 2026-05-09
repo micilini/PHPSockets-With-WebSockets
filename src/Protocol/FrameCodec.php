@@ -40,6 +40,33 @@ final readonly class FrameCodec
     }
 
     /**
+     * Decodes all complete frames available in the buffer and returns incomplete trailing bytes.
+     *
+     * @return array{0: list<Frame>, 1: string}
+     */
+    public function decodeAvailable(string $data, bool $fromClient = true): array
+    {
+        $frames = [];
+        $offset = 0;
+        $length = strlen($data);
+
+        while ($offset < $length) {
+            try {
+                [$frame, $offset] = $this->decodeFrameAt($data, $fromClient, $offset);
+                $frames[] = $frame;
+            } catch (ProtocolException $exception) {
+                if (str_starts_with($exception->getMessage(), 'Incomplete WebSocket frame')) {
+                    return [$frames, substr($data, $offset)];
+                }
+
+                throw $exception;
+            }
+        }
+
+        return [$frames, ''];
+    }
+
+    /**
      * @return array{0: Frame, 1: int}
      */
     private function decodeFrameAt(string $data, bool $fromClient, int $offset): array

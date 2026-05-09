@@ -56,6 +56,44 @@ final class FrameCodecTest extends TestCase
         self::assertSame($secondPayload, $frames[1]->payload);
     }
 
+    public function testDecodeAvailableKeepsIncompleteFrameBytes(): void
+    {
+        $codec = new FrameCodec(maxPayloadBytes: 1024);
+        $encoded = $this->maskedFrame(Opcode::TEXT, 'Hello fragmented world');
+        $firstChunk = substr($encoded, 0, 8);
+        $secondChunk = substr($encoded, 8);
+
+        [$frames, $remaining] = $codec->decodeAvailable($firstChunk);
+
+        self::assertSame([], $frames);
+        self::assertSame($firstChunk, $remaining);
+
+        [$frames, $remaining] = $codec->decodeAvailable($remaining . $secondChunk);
+
+        self::assertCount(1, $frames);
+        self::assertSame('', $remaining);
+        self::assertSame(Opcode::TEXT, $frames[0]->opcode);
+        self::assertSame('Hello fragmented world', $frames[0]->payload);
+    }
+
+    public function testContinuationFramesAreDecodedSeparatelyForRuntimeReassembly(): void
+    {
+        $codec = new FrameCodec(maxPayloadBytes: 1024);
+
+        $frames = $codec->decodeAll(
+            $this->maskedFrame(Opcode::TEXT, 'Hello ', fin: false)
+            . $this->maskedFrame(Opcode::CONTINUATION, 'world')
+        );
+
+        self::assertCount(2, $frames);
+        self::assertFalse($frames[0]->fin);
+        self::assertSame(Opcode::TEXT, $frames[0]->opcode);
+        self::assertSame('Hello ', $frames[0]->payload);
+        self::assertTrue($frames[1]->fin);
+        self::assertSame(Opcode::CONTINUATION, $frames[1]->opcode);
+        self::assertSame('world', $frames[1]->payload);
+    }
+
     public function testServerTextFrameIsEncodedWithoutMask(): void
     {
         $codec = new FrameCodec();
@@ -100,9 +138,9 @@ final class FrameCodecTest extends TestCase
         $codec->decode("\x81\x05Hello");
     }
 
-    private function maskedFrame(Opcode $opcode, string $payload): string
+    private function maskedFrame(Opcode $opcode, string $payload, bool $fin = true): string
     {
-        $firstByte = chr(0x80 | $opcode->value);
+        $firstByte = chr(($fin ? 0x80 : 0x00) | $opcode->value);
         $payloadLength = strlen($payload);
         $maskingKey = "\x37\xfa\x21\x3d";
 
