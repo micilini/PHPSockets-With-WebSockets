@@ -11,6 +11,7 @@ use Micilini\PhpSockets\Contracts\MessageStoreInterface;
 use Micilini\PhpSockets\Contracts\RoomStoreInterface;
 use Micilini\PhpSockets\Contracts\SessionStoreInterface;
 use Micilini\PhpSockets\Exceptions\InvalidPayloadException;
+use Micilini\PhpSockets\Exceptions\UsernameAlreadyTakenException;
 use Micilini\PhpSockets\Protocol\Frame;
 use Micilini\PhpSockets\Protocol\Opcode;
 use Micilini\PhpSockets\Server\WebSocketServer;
@@ -85,8 +86,12 @@ final class ChatKernel
             return;
         }
 
+        $messageType = null;
+
         try {
             $envelope = MessageEnvelope::fromJson($frame->payload);
+            $messageType = $envelope->type;
+
             $this->validator->assertEnvelope($envelope);
 
             match ($envelope->type) {
@@ -95,9 +100,19 @@ final class ChatKernel
                 'message.direct' => $this->handleDirectMessage($connections, $connection, $envelope),
                 'room.create' => $this->handleRoomCreate($connections, $connection, $envelope),
                 'room.message' => $this->handleRoomMessage($connections, $connection, $envelope),
+                'typing.start' => $this->handleTypingStatus($connections, $connection, 'typing.started'),
+                'typing.stop' => $this->handleTypingStatus($connections, $connection, 'typing.stopped'),
                 default => throw new InvalidPayloadException('Unsupported message type.'),
             };
         } catch (Throwable $exception) {
+            if ($messageType === 'auth.join') {
+                $reason = $exception instanceof UsernameAlreadyTakenException ? 'username_taken' : 'join_failed';
+
+                $this->sendSessionRejected($connection, $reason, $exception->getMessage());
+
+                return;
+            }
+
             $this->sendError($connection, $exception->getMessage());
         }
     }
@@ -135,6 +150,11 @@ final class ChatKernel
         $message = ChatMessage::text($room->id, $fromUserId, $this->validator->text($envelope));
 
         $this->messages->save($message);
+
+        $this->broadcastAuthenticatedExcept($connections, $fromUserId, MessageEnvelope::server('typing.stopped', [
+            'userId' => $fromUserId,
+            'roomId' => $room->id,
+        ]));
 
         $this->broadcastAuthenticated($connections, MessageEnvelope::server('message.received', [
             'roomId' => $room->id,
@@ -220,8 +240,32 @@ final class ChatKernel
 
         $this->presence->leave($userId);
 
+        $this->broadcastAuthenticated($connections, MessageEnvelope::server('typing.stopped', [
+            'userId' => $userId,
+            'roomId' => 'global',
+        ]));
+
         $this->broadcastAuthenticated($connections, MessageEnvelope::server('presence.user_left', [
             'userId' => $userId,
+        ]));
+    }
+
+    private function handleTypingStatus(
+        ConnectionRegistryInterface $connections,
+        Connection $connection,
+        string $eventType,
+    ): void {
+        $userId = $this->requireAuthenticated($connection);
+        $session = $this->sessions->findByUserId($userId);
+
+        if (!$session instanceof UserSession) {
+            throw new InvalidPayloadException('Connection session was not found.');
+        }
+
+        $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server($eventType, [
+            'userId' => $userId,
+            'displayName' => $session->displayName,
+            'roomId' => 'global',
         ]));
     }
 
@@ -252,6 +296,14 @@ final class ChatKernel
         ]));
     }
 
+    private function sendSessionRejected(Connection $connection, string $reason, string $message): void
+    {
+        $this->sendEnvelope($connection, MessageEnvelope::server('session.rejected', [
+            'reason' => $reason,
+            'message' => $message,
+        ]));
+    }
+
     private function sendEnvelope(Connection $connection, MessageEnvelope $envelope): void
     {
         $connection->send($envelope->toJson());
@@ -261,6 +313,20 @@ final class ChatKernel
     {
         foreach ($connections->all() as $connection) {
             if ($connection->userId() !== null) {
+                $this->sendEnvelope($connection, $envelope);
+            }
+        }
+    }
+
+    private function broadcastAuthenticatedExcept(
+        ConnectionRegistryInterface $connections,
+        string $exceptUserId,
+        MessageEnvelope $envelope,
+    ): void {
+        foreach ($connections->all() as $connection) {
+            $connectionUserId = $connection->userId();
+
+            if ($connectionUserId !== null && $connectionUserId !== $exceptUserId) {
                 $this->sendEnvelope($connection, $envelope);
             }
         }

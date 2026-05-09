@@ -1,0 +1,88 @@
+# EasyChat Example
+
+EasyChat is the first modern browser example for PHPSockets With WebSockets.
+
+It demonstrates a simple global chat using:
+
+- Native PHP WebSocket server.
+- Composer autoload.
+- PHP sockets.
+- Chat core with unique display names.
+- Plain HTML, CSS and JavaScript.
+- Bootstrap through CDN.
+- Safe message rendering with `textContent`.
+
+## Requirements
+
+From the project root, install dependencies first:
+
+```bash
+composer install
+```
+
+The PHP `sockets` extension must be enabled.
+
+## Running the WebSocket server
+
+From the project root:
+
+```bash
+php examples/easy-chat/server.php
+```
+
+By default, the WebSocket server runs at:
+
+```txt
+ws://127.0.0.1:8080
+```
+
+You can customize host and port with environment variables:
+
+```bash
+PHPSOCKETS_HOST=127.0.0.1 PHPSOCKETS_PORT=8080 php examples/easy-chat/server.php
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:PHPSOCKETS_HOST="127.0.0.1"
+$env:PHPSOCKETS_PORT="8080"
+php examples/easy-chat/server.php
+```
+
+## Running the browser UI
+
+Open a second terminal and run:
+
+```bash
+php -S 127.0.0.1:8000 -t examples/easy-chat/public
+```
+
+Then open:
+
+```txt
+http://127.0.0.1:8000
+```
+
+## Manual test
+
+Open two browser tabs:
+
+```txt
+Tab 1: William
+Tab 2: Ana
+```
+
+Expected behavior:
+
+- Both users should enter the chat.
+- Both users should appear in the online users list.
+- Messages sent by one tab should appear in the other tab.
+- Duplicate display names should be rejected.
+- User messages must be rendered safely without `innerHTML`.
+
+## Important notes
+
+This example is intentionally simple.
+
+It only demonstrates the global chat flow. Private direct messages and private group rooms will be demonstrated in later examples.

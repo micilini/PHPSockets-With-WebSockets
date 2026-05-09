@@ -167,23 +167,36 @@ final class ServerRuntime
         }
 
         try {
-            $frame = $this->codec->decode($data);
+            $frames = $this->codec->decodeAll($data);
 
-            if ($frame->opcode === Opcode::PING) {
-                $connection->send(Frame::pong($frame->payload));
-                return;
+            foreach ($frames as $frame) {
+                if (!$this->handleFrame($connection, $frame)) {
+                    break;
+                }
             }
-
-            if ($frame->opcode === Opcode::CLOSE) {
-                $this->closeConnection($connection);
-                return;
-            }
-
-            $this->dispatcher->dispatch(new MessageReceived($connection, $frame));
         } catch (Throwable $exception) {
             $this->dispatcher->dispatch(new ServerError($exception, $connection));
             $this->closeConnection($connection);
         }
+    }
+
+    private function handleFrame(Connection $connection, Frame $frame): bool
+    {
+        if ($frame->opcode === Opcode::PING) {
+            $connection->send(Frame::pong($frame->payload));
+
+            return true;
+        }
+
+        if ($frame->opcode === Opcode::CLOSE) {
+            $this->closeConnection($connection);
+
+            return false;
+        }
+
+        $this->dispatcher->dispatch(new MessageReceived($connection, $frame));
+
+        return true;
     }
 
     private function closeConnection(Connection $connection): void
