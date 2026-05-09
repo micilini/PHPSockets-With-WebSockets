@@ -22,7 +22,10 @@ final readonly class ChatMessage
     ) {
     }
 
-    public static function text(string $roomId, string $fromUserId, string $text): self
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    public static function text(string $roomId, string $fromUserId, string $text, array $metadata = []): self
     {
         return new self(
             id: 'msg_' . bin2hex(random_bytes(16)),
@@ -31,6 +34,7 @@ final readonly class ChatMessage
             kind: 'text',
             body: $text,
             createdAt: new DateTimeImmutable(),
+            metadata: $metadata,
         );
     }
 

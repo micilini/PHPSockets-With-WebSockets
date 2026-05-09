@@ -6,8 +6,13 @@
   box-sizing: border-box;
 }
 
+html,
 body {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
   margin: 0;
   background:
     radial-gradient(circle at top left, rgba(124, 58, 237, 0.26), transparent 30rem),
@@ -19,8 +24,12 @@ body {
 
 .app-shell {
   width: min(1420px, calc(100vw - 32px));
+  height: 100vh;
   margin: 0 auto;
-  padding: 36px 0;
+  padding: 24px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .hero-card,
@@ -109,8 +118,8 @@ body {
 }
 
 .login-panel {
-  max-width: 540px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .panel-header {
@@ -174,19 +183,23 @@ body {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 330px;
   gap: 18px;
-  min-height: 690px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .side-panel,
 .chat-panel,
 .event-panel {
-  min-height: 690px;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .side-panel,
 .event-panel {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .count-pill {
@@ -199,6 +212,9 @@ body {
 .users-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .user-item {
@@ -285,7 +301,9 @@ body {
 }
 
 .messages-list {
-  flex: 1;
+  flex: 1 1 auto;
+  max-height: 594px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -316,6 +334,41 @@ body {
   color: #718096;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.message-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(680px, 84%);
+}
+
+.message-row.is-own .message-footer {
+  justify-content: flex-end;
+}
+
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  color: #718096;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  user-select: none;
+}
+
+.message-status-sent {
+  color: #94a3b8;
+}
+
+.message-status-received {
+  color: #cbd5e1;
+}
+
+.message-status-read {
+  color: #67e8f9;
 }
 
 .message-bubble {
@@ -359,12 +412,13 @@ body {
 }
 
 .event-log {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 10px;
   min-height: 0;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .event-item {
@@ -419,6 +473,17 @@ body {
 }
 
 @media (max-width: 860px) {
+  html,
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
   .hero-card,
   .chat-header {
     align-items: flex-start;
@@ -427,12 +492,13 @@ body {
 
   .medium-layout {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .side-panel,
   .chat-panel,
   .event-panel {
-    min-height: auto;
+    min-height: 0;
   }
 
   .chat-panel {

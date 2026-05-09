@@ -4,6 +4,9 @@ const state = {
   users: new Map(),
   typingUsers: new Map(),
   typingTimers: new Map(),
+  pendingMessages: new Map(),
+  messageElements: new Map(),
+  messageReadBy: new Map(),
   isTyping: false,
   typingStopTimer: null,
   lastTypingStartSentAt: 0,
@@ -53,8 +56,11 @@ elements.messageForm.addEventListener('submit', (event) => {
     return;
   }
 
+  const clientMessageId = createClientMessageId();
+
   clearLocalTypingStateBeforeSend();
-  sendEnvelope('message.global', { text });
+  addPendingOwnMessage(text, clientMessageId);
+  sendEnvelope('message.global', { text, clientMessageId });
   elements.messageInput.value = '';
   elements.messageInput.focus();
 });
@@ -173,6 +179,10 @@ function handleServerMessage(rawMessage) {
       handleMessageReceived(envelope.payload);
       break;
 
+    case 'message.read':
+      handleMessageRead(envelope.payload);
+      break;
+
     case 'typing.started':
       handleTypingStarted(envelope.payload);
       break;
@@ -255,8 +265,42 @@ function handleMessageReceived(payload) {
     return;
   }
 
-  clearTypingUser(payload.message.fromUserId);
-  addMessage(payload.message);
+  const message = payload.message;
+  const isOwn = state.currentUser && message.fromUserId === state.currentUser.userId;
+  const clientMessageId = message.metadata && message.metadata.clientMessageId;
+
+  clearTypingUser(message.fromUserId);
+
+  if (isOwn && clientMessageId && state.pendingMessages.has(clientMessageId)) {
+    state.pendingMessages.delete(clientMessageId);
+    updatePendingMessageAsReceived(clientMessageId, message);
+    return;
+  }
+
+  addMessage(message);
+
+  if (!isOwn) {
+    sendEnvelope('message.read', {
+      messageId: message.id,
+      roomId: message.roomId || 'global',
+    });
+  }
+}
+
+function handleMessageRead(payload) {
+  if (!payload.messageId || !payload.userId) {
+    return;
+  }
+
+  if (state.currentUser && payload.userId === state.currentUser.userId) {
+    return;
+  }
+
+  const readBy = state.messageReadBy.get(payload.messageId) || new Map();
+  readBy.set(payload.userId, payload.displayName || 'Someone');
+  state.messageReadBy.set(payload.messageId, readBy);
+
+  updateMessageStatus(payload.messageId, 'read');
 }
 
 function handleTypingStarted(payload) {
@@ -310,6 +354,83 @@ function sendEnvelope(type, payload) {
   }
 
   state.socket.send(JSON.stringify({ type, payload }));
+}
+
+function createClientMessageId() {
+  return `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function addPendingOwnMessage(text, clientMessageId) {
+  const message = {
+    id: clientMessageId,
+    roomId: 'global',
+    fromUserId: state.currentUser ? state.currentUser.userId : null,
+    kind: 'text',
+    body: text,
+    metadata: { clientMessageId },
+    createdAt: new Date().toISOString(),
+    status: 'sent',
+  };
+
+  state.pendingMessages.set(clientMessageId, message);
+  addMessage(message);
+}
+
+function updatePendingMessageAsReceived(clientMessageId, message) {
+  const row = state.messageElements.get(clientMessageId);
+
+  if (!row) {
+    addMessage(message);
+    updateMessageStatus(message.id, 'received');
+    return;
+  }
+
+  state.messageElements.delete(clientMessageId);
+  state.messageElements.set(message.id, row);
+  row.dataset.messageId = message.id;
+
+  const status = row.querySelector('.message-status');
+  updateStatusElement(status, 'received');
+}
+
+function updateMessageStatus(messageId, statusName) {
+  const row = state.messageElements.get(messageId);
+
+  if (!row) {
+    return;
+  }
+
+  const status = row.querySelector('.message-status');
+
+  if (!status) {
+    return;
+  }
+
+  updateStatusElement(status, statusName);
+}
+
+function updateStatusElement(element, statusName) {
+  if (!element) {
+    return;
+  }
+
+  element.classList.remove('message-status-sent', 'message-status-received', 'message-status-read');
+  element.classList.add(`message-status-${statusName}`);
+
+  if (statusName === 'sent') {
+    element.textContent = '✓';
+    element.title = 'Message sent';
+    return;
+  }
+
+  if (statusName === 'received') {
+    element.textContent = '✓✓';
+    element.title = 'Message received';
+    return;
+  }
+
+  element.textContent = '✓✓';
+  element.title = 'Message read';
 }
 
 function handleTypingInput() {
@@ -376,6 +497,9 @@ function clearLocalTypingStateBeforeSend() {
 function resetToLogin(keepDisplayName) {
   state.currentUser = null;
   state.users.clear();
+  state.pendingMessages.clear();
+  state.messageElements.clear();
+  state.messageReadBy.clear();
   clearTypingState();
 
   elements.chatPanel.classList.add('d-none');
@@ -515,6 +639,9 @@ function clearTypingState() {
 }
 
 function renderEmptyMessages() {
+  state.pendingMessages.clear();
+  state.messageElements.clear();
+  state.messageReadBy.clear();
   elements.messagesList.replaceChildren();
 
   const empty = document.createElement('div');
@@ -537,18 +664,29 @@ function addMessage(message) {
 
   const row = document.createElement('div');
   row.className = isOwn ? 'message-row is-own' : 'message-row';
+  row.dataset.messageId = message.id;
+
+  const footer = document.createElement('div');
+  footer.className = 'message-footer';
 
   const meta = document.createElement('div');
   meta.className = 'message-meta';
-  meta.textContent = `${sender} • ${createdAt}`;
+  meta.textContent = `${sender} - ${createdAt}`;
+
+  const status = document.createElement('span');
+  status.className = 'message-status';
+  updateStatusElement(status, isOwn ? message.status || 'received' : 'received');
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
   bubble.textContent = message.body || '';
 
-  row.appendChild(meta);
+  footer.appendChild(meta);
+  footer.appendChild(status);
+  row.appendChild(footer);
   row.appendChild(bubble);
 
+  state.messageElements.set(message.id, row);
   elements.messagesList.appendChild(row);
   elements.messagesList.scrollTop = elements.messagesList.scrollHeight;
 }

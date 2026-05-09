@@ -6,8 +6,13 @@
   box-sizing: border-box;
 }
 
+html,
 body {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
   margin: 0;
   background:
     radial-gradient(circle at top left, rgba(72, 101, 255, 0.28), transparent 32rem),
@@ -19,8 +24,12 @@ body {
 
 .app-shell {
   width: min(1180px, calc(100vw - 32px));
+  height: 100vh;
   margin: 0 auto;
-  padding: 40px 0;
+  padding: 24px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .hero-card,
@@ -112,8 +121,8 @@ body {
 }
 
 .login-panel {
-  max-width: 520px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .panel-header {
@@ -177,12 +186,21 @@ body {
   display: grid;
   grid-template-columns: 310px minmax(0, 1fr);
   gap: 18px;
-  min-height: 680px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .users-panel,
 .chat-panel {
-  min-height: 680px;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.users-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .count-pill {
@@ -195,6 +213,9 @@ body {
 .users-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .user-item {
@@ -262,7 +283,9 @@ body {
 }
 
 .messages-list {
-  flex: 1;
+  flex: 1 1 auto;
+  max-height: 594px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -293,6 +316,41 @@ body {
   color: #64748b;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.message-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(620px, 82%);
+}
+
+.message-row.is-own .message-footer {
+  justify-content: flex-end;
+}
+
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  user-select: none;
+}
+
+.message-status-sent {
+  color: #94a3b8;
+}
+
+.message-status-received {
+  color: #cbd5e1;
+}
+
+.message-status-read {
+  color: #38bdf8;
 }
 
 .message-bubble {
@@ -355,6 +413,17 @@ body {
 }
 
 @media (max-width: 860px) {
+  html,
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
   .hero-card,
   .chat-header {
     align-items: flex-start;
@@ -363,11 +432,12 @@ body {
 
   .chat-layout {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .users-panel,
   .chat-panel {
-    min-height: auto;
+    min-height: 0;
   }
 
   .chat-panel {

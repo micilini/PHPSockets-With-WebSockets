@@ -100,6 +100,8 @@ http://127.0.0.1:8001
 
 MediumChat demonstrates high-level callbacks such as `user.joined`, `user.left`, `message.received`, and `room.created`, plus low-level socket callbacks such as `open`, `close`, and `error`.
 
+EasyChat and MediumChat also include typing indicators and simple message status receipts for sent, received, and read states.
+
 ## Requirements
 
 The modern version targets:

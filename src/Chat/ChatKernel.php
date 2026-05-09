@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Micilini\PhpSockets\Chat;
 
+use DateTimeImmutable;
 use Micilini\PhpSockets\Config\ChatConfig;
 use Micilini\PhpSockets\Connection\Connection;
 use Micilini\PhpSockets\Contracts\ConnectionRegistryInterface;
@@ -112,6 +113,7 @@ final class ChatKernel
                 'auth.join' => $this->handleJoin($connections, $connection, $envelope),
                 'message.global' => $this->handleGlobalMessage($connections, $connection, $envelope),
                 'message.direct' => $this->handleDirectMessage($connections, $connection, $envelope),
+                'message.read' => $this->handleMessageRead($connections, $connection, $envelope),
                 'room.create' => $this->handleRoomCreate($connections, $connection, $envelope),
                 'room.message' => $this->handleRoomMessage($connections, $connection, $envelope),
                 'typing.start' => $this->handleTypingStatus($connections, $connection, 'typing.started'),
@@ -167,7 +169,19 @@ final class ChatKernel
     ): void {
         $fromUserId = $this->requireAuthenticated($connection);
         $room = $this->roomManager->ensureGlobalRoom();
-        $message = ChatMessage::text($room->id, $fromUserId, $this->validator->text($envelope));
+        $clientMessageId = $this->validator->clientMessageId($envelope);
+        $metadata = [];
+
+        if ($clientMessageId !== null) {
+            $metadata['clientMessageId'] = $clientMessageId;
+        }
+
+        $message = ChatMessage::text(
+            roomId: $room->id,
+            fromUserId: $fromUserId,
+            text: $this->validator->text($envelope),
+            metadata: $metadata,
+        );
 
         $this->messages->save($message);
 
@@ -274,6 +288,27 @@ final class ChatKernel
         $this->deliverToUsers($connections, $room->memberUserIds, MessageEnvelope::server('message.received', [
             'roomId' => $room->id,
             'message' => $message->toArray(),
+        ]));
+    }
+
+    private function handleMessageRead(
+        ConnectionRegistryInterface $connections,
+        Connection $connection,
+        MessageEnvelope $envelope,
+    ): void {
+        $userId = $this->requireAuthenticated($connection);
+        $session = $this->sessions->findByUserId($userId);
+
+        if (!$session instanceof UserSession) {
+            throw new InvalidPayloadException('Connection session was not found.');
+        }
+
+        $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server('message.read', [
+            'messageId' => $this->validator->messageId($envelope),
+            'roomId' => $envelope->payload['roomId'] ?? 'global',
+            'userId' => $userId,
+            'displayName' => $session->displayName,
+            'readAt' => (new DateTimeImmutable())->format(DATE_ATOM),
         ]));
     }
 

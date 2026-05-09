@@ -50,4 +50,33 @@ final class PayloadValidatorTest extends TestCase
 
         $validator->assertEnvelope($envelope);
     }
+
+    public function testMessageReadTypeIsAccepted(): void
+    {
+        $validator = new PayloadValidator();
+        $envelope = new MessageEnvelope('message.read', ['messageId' => 'msg_123']);
+
+        $validator->assertEnvelope($envelope);
+
+        self::assertSame('msg_123', $validator->messageId($envelope));
+    }
+
+    public function testEmptyMessageIdIsRejected(): void
+    {
+        $validator = new PayloadValidator();
+        $envelope = new MessageEnvelope('message.read', ['messageId' => '   ']);
+
+        $this->expectException(InvalidPayloadException::class);
+        $this->expectExceptionMessage('Payload field messageId is required.');
+
+        $validator->messageId($envelope);
+    }
+
+    public function testClientMessageIdIsNormalized(): void
+    {
+        $validator = new PayloadValidator();
+        $envelope = new MessageEnvelope('message.global', ['clientMessageId' => ' client_123 ']);
+
+        self::assertSame('client_123', $validator->clientMessageId($envelope));
+    }
 }
