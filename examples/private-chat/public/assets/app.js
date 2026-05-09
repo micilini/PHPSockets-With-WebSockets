@@ -11,6 +11,7 @@ const state = {
   pendingMessageConversations: new Map(),
   messageElements: new Map(),
   messageReadBy: new Map(),
+  unreadCounts: new Map(),
   isTyping: false,
   typingStopTimer: null,
   lastTypingStartSentAt: 0,
@@ -30,19 +31,27 @@ state.conversations.set('global', {
 const elements = {
   alertBox: document.getElementById('alertBox'),
   chatPanel: document.getElementById('chatPanel'),
+  closePrivateRoomModalButton: document.getElementById('closePrivateRoomModalButton'),
   connectionStatus: document.getElementById('connectionStatus'),
   conversationEyebrow: document.getElementById('conversationEyebrow'),
   conversationTitle: document.getElementById('conversationTitle'),
+  createPrivateRoomButton: document.getElementById('createPrivateRoomButton'),
   currentDisplayName: document.getElementById('currentDisplayName'),
   displayNameInput: document.getElementById('displayNameInput'),
   globalRoomButton: document.getElementById('globalRoomButton'),
+  groupRoomsList: document.getElementById('groupRoomsList'),
   joinButton: document.getElementById('joinButton'),
   joinForm: document.getElementById('joinForm'),
   loginPanel: document.getElementById('loginPanel'),
   messageForm: document.getElementById('messageForm'),
   messageInput: document.getElementById('messageInput'),
   messagesList: document.getElementById('messagesList'),
+  newPrivateRoomButton: document.getElementById('newPrivateRoomButton'),
   onlineCount: document.getElementById('onlineCount'),
+  privateRoomForm: document.getElementById('privateRoomForm'),
+  privateRoomModal: document.getElementById('privateRoomModal'),
+  privateRoomNameInput: document.getElementById('privateRoomNameInput'),
+  privateRoomUsersList: document.getElementById('privateRoomUsersList'),
   serverUrlInput: document.getElementById('serverUrlInput'),
   typingIndicator: document.getElementById('typingIndicator'),
   usersList: document.getElementById('usersList'),
@@ -64,6 +73,25 @@ elements.joinForm.addEventListener('submit', (event) => {
 
 elements.globalRoomButton.addEventListener('click', () => {
   setActiveConversation('global');
+});
+
+elements.newPrivateRoomButton.addEventListener('click', () => {
+  openPrivateRoomModal();
+});
+
+elements.closePrivateRoomModalButton.addEventListener('click', () => {
+  closePrivateRoomModal();
+});
+
+elements.privateRoomModal.addEventListener('click', (event) => {
+  if (event.target && event.target.getAttribute('data-close-room-modal') === 'true') {
+    closePrivateRoomModal();
+  }
+});
+
+elements.privateRoomForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  createPrivateRoomFromForm();
 });
 
 elements.messageForm.addEventListener('submit', (event) => {
@@ -89,9 +117,15 @@ elements.messageForm.addEventListener('submit', (event) => {
 
   if (conversation.type === 'global') {
     sendEnvelope('message.global', { text, clientMessageId });
-  } else {
+  } else if (conversation.type === 'direct') {
     sendEnvelope('message.direct', {
       toUserId: conversation.targetUserId,
+      text,
+      clientMessageId,
+    });
+  } else {
+    sendEnvelope('room.message', {
+      roomId: conversation.roomId,
       text,
       clientMessageId,
     });
@@ -120,6 +154,7 @@ window.addEventListener('beforeunload', () => {
 renderEmptyMessages();
 renderTypingIndicator();
 renderConversationHeader();
+renderGroupRooms();
 setStatus('Disconnected', 'offline');
 
 function connect(serverUrl, displayName) {
@@ -220,6 +255,10 @@ function handleServerMessage(rawMessage) {
       handleMessageRead(envelope.payload);
       break;
 
+    case 'room.created':
+      handleRoomCreated(envelope.payload);
+      break;
+
     case 'typing.started':
       handleTypingStarted(envelope.payload);
       break;
@@ -253,6 +292,7 @@ function handleSessionAccepted(payload) {
   clearAlert();
   setActiveConversation('global');
   renderUsers();
+  renderGroupRooms();
 
   elements.messageInput.focus();
 }
@@ -278,6 +318,7 @@ function handlePresenceSnapshot(payload) {
   }
 
   renderUsers();
+  renderGroupRooms();
 }
 
 function handleUserJoined(payload) {
@@ -287,6 +328,7 @@ function handleUserJoined(payload) {
     state.users.set(user.userId, user);
     ensureDirectConversationFromUserId(user.userId);
     renderUsers();
+    renderGroupRooms();
   }
 }
 
@@ -295,6 +337,7 @@ function handleUserLeft(payload) {
     state.users.delete(payload.userId);
     clearTypingUserInAllConversations(payload.userId);
     renderUsers();
+    renderGroupRooms();
   }
 }
 
@@ -324,11 +367,42 @@ function handleMessageReceived(payload) {
 
   addMessage(message, conversationId);
 
+  if (!isOwn && conversationId !== state.activeConversationId) {
+    incrementUnread(conversationId);
+  }
+
   if (!isOwn) {
     sendEnvelope('message.read', {
       messageId: message.id,
       roomId: message.roomId || 'global',
     });
+  }
+}
+
+function handleRoomCreated(payload) {
+  if (!payload.room || !payload.room.id) {
+    return;
+  }
+
+  const room = payload.room;
+  const conversationId = groupConversationId(room.id);
+  const title = room.name || groupTitleFromMembers(room.memberUserIds || []);
+
+  state.conversations.set(conversationId, {
+    id: conversationId,
+    type: 'private_group',
+    title,
+    subtitle: 'Private group',
+    targetUserId: null,
+    roomId: room.id,
+    memberUserIds: Array.isArray(room.memberUserIds) ? room.memberUserIds : [],
+    createdBy: room.createdBy || null,
+  });
+
+  renderGroupRooms();
+
+  if (state.currentUser && room.createdBy === state.currentUser.userId) {
+    setActiveConversation(conversationId);
   }
 }
 
@@ -405,8 +479,156 @@ function sendEnvelope(type, payload) {
   state.socket.send(JSON.stringify({ type, payload }));
 }
 
+function openPrivateRoomModal() {
+  renderPrivateRoomUsersList();
+  elements.privateRoomModal.classList.remove('d-none');
+  elements.privateRoomModal.setAttribute('aria-hidden', 'false');
+  elements.privateRoomNameInput.focus();
+}
+
+function closePrivateRoomModal() {
+  elements.privateRoomModal.classList.add('d-none');
+  elements.privateRoomModal.setAttribute('aria-hidden', 'true');
+  elements.privateRoomNameInput.value = '';
+  elements.privateRoomUsersList.replaceChildren();
+  elements.createPrivateRoomButton.disabled = true;
+}
+
+function selectedPrivateRoomUserIds() {
+  return [...elements.privateRoomUsersList.querySelectorAll('input[type="checkbox"]:checked')]
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+
+function renderPrivateRoomUsersList() {
+  elements.privateRoomUsersList.replaceChildren();
+
+  const users = [...state.users.values()]
+    .filter((user) => !state.currentUser || user.userId !== state.currentUser.userId)
+    .sort((first, second) => first.displayName.localeCompare(second.displayName));
+
+  if (users.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No other users online.';
+    elements.privateRoomUsersList.appendChild(empty);
+    elements.createPrivateRoomButton.disabled = true;
+    return;
+  }
+
+  for (const user of users) {
+    const label = document.createElement('label');
+    label.className = 'room-user-option';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = user.userId;
+
+    checkbox.addEventListener('change', () => {
+      elements.createPrivateRoomButton.disabled = selectedPrivateRoomUserIds().length === 0;
+    });
+
+    const name = document.createElement('span');
+    name.className = 'room-user-option-name';
+    name.textContent = user.displayName;
+
+    label.appendChild(checkbox);
+    label.appendChild(name);
+
+    elements.privateRoomUsersList.appendChild(label);
+  }
+
+  elements.createPrivateRoomButton.disabled = true;
+}
+
+function createPrivateRoomFromForm() {
+  const participantUserIds = selectedPrivateRoomUserIds();
+
+  if (participantUserIds.length === 0) {
+    showAlert('Select at least one participant.', 'warning');
+    return;
+  }
+
+  const name = elements.privateRoomNameInput.value.trim();
+
+  sendEnvelope('room.create', {
+    type: 'private_group',
+    name: name || null,
+    participantUserIds,
+  });
+
+  closePrivateRoomModal();
+}
+
 function directConversationId(userId) {
   return `direct:${userId}`;
+}
+
+function groupConversationId(roomId) {
+  return `room:${roomId}`;
+}
+
+function unreadCountForConversation(conversationId) {
+  return state.unreadCounts.get(conversationId) || 0;
+}
+
+function formatUnreadCount(count) {
+  if (count <= 0) {
+    return '';
+  }
+
+  return count > 99 ? '99+' : String(count);
+}
+
+function incrementUnread(conversationId) {
+  if (conversationId === state.activeConversationId) {
+    return;
+  }
+
+  const current = unreadCountForConversation(conversationId);
+  state.unreadCounts.set(conversationId, current + 1);
+  renderConversationBadges();
+}
+
+function clearUnread(conversationId) {
+  state.unreadCounts.delete(conversationId);
+  renderConversationBadges();
+}
+
+function renderConversationBadges() {
+  const globalBadge = elements.globalRoomButton.querySelector('.unread-badge');
+  updateBadgeElement(globalBadge, unreadCountForConversation('global'));
+
+  for (const item of elements.usersList.querySelectorAll('[data-conversation-id]')) {
+    const conversationId = item.getAttribute('data-conversation-id');
+    const badge = item.querySelector('.unread-badge');
+
+    if (conversationId && badge) {
+      updateBadgeElement(badge, unreadCountForConversation(conversationId));
+    }
+  }
+
+  if (elements.groupRoomsList) {
+    for (const item of elements.groupRoomsList.querySelectorAll('[data-conversation-id]')) {
+      const conversationId = item.getAttribute('data-conversation-id');
+      const badge = item.querySelector('.unread-badge');
+
+      if (conversationId && badge) {
+        updateBadgeElement(badge, unreadCountForConversation(conversationId));
+      }
+    }
+  }
+}
+
+function updateBadgeElement(element, count) {
+  if (!element) {
+    return;
+  }
+
+  const label = formatUnreadCount(count);
+
+  element.textContent = label;
+  element.classList.toggle('d-none', label === '');
 }
 
 function openDirectConversation(userId) {
@@ -445,6 +667,86 @@ function ensureDirectConversationFromUserId(userId) {
   }
 }
 
+function groupTitleFromMembers(memberUserIds) {
+  const names = memberUserIds
+    .filter((userId) => !state.currentUser || userId !== state.currentUser.userId)
+    .map((userId) => {
+      const user = state.users.get(userId);
+      return user ? user.displayName : 'Unknown user';
+    })
+    .filter(Boolean);
+
+  if (names.length === 0) {
+    return 'Private room';
+  }
+
+  if (names.length <= 3) {
+    return names.join(', ');
+  }
+
+  return `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+}
+
+function renderGroupRooms() {
+  if (!elements.groupRoomsList) {
+    return;
+  }
+
+  elements.groupRoomsList.replaceChildren();
+
+  const rooms = [...state.conversations.values()]
+    .filter((conversation) => conversation.type === 'private_group')
+    .sort((first, second) => first.title.localeCompare(second.title));
+
+  if (rooms.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state compact-empty';
+    empty.textContent = 'No private rooms yet.';
+    elements.groupRoomsList.appendChild(empty);
+    return;
+  }
+
+  for (const conversation of rooms) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = conversation.id === state.activeConversationId
+      ? 'conversation-item conversation-item-active'
+      : 'conversation-item';
+    item.dataset.conversationId = conversation.id;
+
+    const avatar = document.createElement('span');
+    avatar.className = 'conversation-avatar';
+    avatar.textContent = 'G';
+
+    const info = document.createElement('span');
+    info.className = 'conversation-info';
+
+    const title = document.createElement('strong');
+    title.textContent = conversation.title;
+
+    const subtitle = document.createElement('small');
+    subtitle.textContent = `${conversation.memberUserIds ? conversation.memberUserIds.length : 0} members`;
+
+    const badge = document.createElement('span');
+    badge.className = 'unread-badge d-none';
+
+    info.appendChild(title);
+    info.appendChild(subtitle);
+
+    item.appendChild(avatar);
+    item.appendChild(info);
+    item.appendChild(badge);
+
+    item.addEventListener('click', () => {
+      setActiveConversation(conversation.id);
+    });
+
+    elements.groupRoomsList.appendChild(item);
+  }
+
+  renderConversationBadges();
+}
+
 function setActiveConversation(conversationId) {
   if (!state.conversations.has(conversationId)) {
     return;
@@ -453,8 +755,10 @@ function setActiveConversation(conversationId) {
   stopTyping();
 
   state.activeConversationId = conversationId;
+  clearUnread(conversationId);
   renderConversationHeader();
   renderUsers();
+  renderGroupRooms();
   renderMessages();
   renderTypingIndicator();
 
@@ -469,13 +773,23 @@ function renderConversationHeader() {
   }
 
   elements.conversationTitle.textContent = conversation.title;
-  elements.conversationEyebrow.textContent = conversation.type === 'global' ? 'Global room' : 'Private direct';
+  elements.conversationEyebrow.textContent = conversation.type === 'global'
+    ? 'Global room'
+    : conversation.type === 'direct'
+      ? 'Private direct'
+      : 'Private group';
   elements.globalRoomButton.classList.toggle('conversation-item-active', conversation.id === 'global');
 }
 
 function conversationIdForMessage(message) {
   if (message.roomId === 'global') {
     return 'global';
+  }
+
+  const roomConversationId = groupConversationId(message.roomId);
+
+  if (state.conversations.has(roomConversationId)) {
+    return roomConversationId;
   }
 
   if (state.currentUser && message.fromUserId !== state.currentUser.userId) {
@@ -499,6 +813,10 @@ function conversationIdForTyping(payload) {
     return directConversationId(payload.userId);
   }
 
+  if (payload.scope === 'room' && payload.roomId) {
+    return groupConversationId(payload.roomId);
+  }
+
   return 'global';
 }
 
@@ -509,10 +827,17 @@ function typingPayloadForActiveConversation() {
     return { roomId: 'global' };
   }
 
+  if (conversation.type === 'direct') {
+    return {
+      scope: 'direct',
+      toUserId: conversation.targetUserId,
+      roomId: conversation.roomId || null,
+    };
+  }
+
   return {
-    scope: 'direct',
-    toUserId: conversation.targetUserId,
-    roomId: conversation.roomId || null,
+    scope: 'room',
+    roomId: conversation.roomId,
   };
 }
 
@@ -537,9 +862,10 @@ function createClientMessageId() {
 }
 
 function addPendingOwnMessage(text, clientMessageId, conversationId) {
+  const conversation = state.conversations.get(conversationId);
   const message = {
     id: clientMessageId,
-    roomId: conversationId === 'global' ? 'global' : null,
+    roomId: conversation && conversation.roomId ? conversation.roomId : 'global',
     fromUserId: state.currentUser ? state.currentUser.userId : null,
     kind: 'text',
     body: text,
@@ -725,6 +1051,7 @@ function resetToLogin(keepDisplayName) {
   state.pendingMessageConversations.clear();
   state.messageElements.clear();
   state.messageReadBy.clear();
+  state.unreadCounts.clear();
   clearTypingState();
 
   elements.chatPanel.classList.add('d-none');
@@ -738,6 +1065,7 @@ function resetToLogin(keepDisplayName) {
   setJoinFormEnabled(true);
   renderConversationHeader();
   renderUsers();
+  renderGroupRooms();
   renderMessages();
 }
 
@@ -784,6 +1112,7 @@ function renderUsers() {
     const item = document.createElement('button');
     item.className = 'user-item';
     item.type = 'button';
+    item.dataset.conversationId = directConversationId(user.userId);
     item.classList.toggle('user-item-active', state.activeConversationId === directConversationId(user.userId));
     item.addEventListener('click', () => {
       openDirectConversation(user.userId);
@@ -797,11 +1126,17 @@ function renderUsers() {
     name.className = 'user-name';
     name.textContent = user.displayName;
 
+    const badge = document.createElement('span');
+    badge.className = 'unread-badge d-none';
+
     item.appendChild(avatar);
     item.appendChild(name);
+    item.appendChild(badge);
 
     elements.usersList.appendChild(item);
   }
+
+  renderConversationBadges();
 }
 
 function renderMessages() {

@@ -284,7 +284,19 @@ final class ChatKernel
         $fromUserId = $this->requireAuthenticated($connection);
         $roomId = $this->validator->roomId($envelope);
         $room = $this->roomManager->assertMember($roomId, $fromUserId);
-        $message = $this->privateGroups->send($roomId, $fromUserId, $this->validator->text($envelope));
+        $clientMessageId = $this->validator->clientMessageId($envelope);
+        $metadata = [];
+
+        if ($clientMessageId !== null) {
+            $metadata['clientMessageId'] = $clientMessageId;
+        }
+
+        $message = $this->privateGroups->send(
+            roomId: $roomId,
+            fromUserId: $fromUserId,
+            text: $this->validator->text($envelope),
+            metadata: $metadata,
+        );
 
         $this->emit('message.received', [
             'message' => $message,
@@ -410,6 +422,33 @@ final class ChatKernel
             ]));
 
             return;
+        }
+
+        $roomId = $envelope->payload['roomId'] ?? null;
+
+        if ($roomId !== null && !is_string($roomId)) {
+            throw new InvalidPayloadException('Payload field roomId must be a string.');
+        }
+
+        if (is_string($roomId)) {
+            $roomId = trim($roomId);
+
+            if ($roomId !== '' && $roomId !== 'global') {
+                $room = $this->roomManager->assertMember($roomId, $userId);
+                $recipientUserIds = array_values(array_filter(
+                    $room->memberUserIds,
+                    static fn (string $memberUserId): bool => $memberUserId !== $userId,
+                ));
+
+                $this->deliverToUsers($connections, $recipientUserIds, MessageEnvelope::server($eventType, [
+                    'userId' => $userId,
+                    'displayName' => $session->displayName,
+                    'roomId' => $room->id,
+                    'scope' => 'room',
+                ]));
+
+                return;
+            }
         }
 
         $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server($eventType, [
