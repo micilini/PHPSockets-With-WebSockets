@@ -1091,11 +1091,13 @@ function addMessage(message) {
   }
 
   const isOwn = state.currentUser && message.fromUserId === state.currentUser.userId;
-  const sender = findDisplayName(message.fromUserId);
+  const sender = displayNameForMessage(message);
   const createdAt = formatTime(message.createdAt);
+  const isBot = message.kind === 'bot' || Boolean(message.metadata && message.metadata.bot);
 
   const row = document.createElement('div');
   row.className = isOwn ? 'message-row is-own' : 'message-row';
+  row.classList.toggle('is-bot', isBot);
   row.dataset.messageId = message.id;
 
   const footer = document.createElement('div');
@@ -1202,6 +1204,14 @@ function findDisplayName(userId) {
   }
 
   return user.displayName;
+}
+
+function displayNameForMessage(message) {
+  if (message && message.metadata && message.metadata.botName) {
+    return message.metadata.botName;
+  }
+
+  return findDisplayName(message.fromUserId);
 }
 
 function formatTime(value) {

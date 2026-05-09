@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Micilini\PhpSockets\Chat;
 
+use Micilini\PhpSockets\Chat\Bot\BotManager;
 use Micilini\PhpSockets\Config\ChatConfig;
 use Micilini\PhpSockets\Config\ServerConfig;
 use Micilini\PhpSockets\Server\WebSocketServer;
@@ -17,6 +18,7 @@ final readonly class ChatServer
         'user.joined' => true,
         'user.left' => true,
         'message.received' => true,
+        'bot.responded' => true,
         'room.created' => true,
     ];
 
@@ -66,5 +68,10 @@ final readonly class ChatServer
     public function kernel(): ChatKernel
     {
         return $this->kernel;
+    }
+
+    public function bots(): BotManager
+    {
+        return $this->kernel->bots();
     }
 }

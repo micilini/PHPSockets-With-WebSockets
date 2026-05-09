@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Micilini\PhpSockets\Chat;
 
 use DateTimeImmutable;
+use Micilini\PhpSockets\Chat\Bot\BotContext;
+use Micilini\PhpSockets\Chat\Bot\BotManager;
 use Micilini\PhpSockets\Config\ChatConfig;
 use Micilini\PhpSockets\Connection\Connection;
 use Micilini\PhpSockets\Contracts\AttachmentStoreInterface;
@@ -35,6 +37,7 @@ final class ChatKernel
     private readonly PrivateGroupRouter $privateGroups;
     private readonly AttachmentValidator $attachmentValidator;
     private readonly AttachmentStoreInterface $attachments;
+    private readonly BotManager $bots;
 
     /**
      * @var array<string, list<callable(array<string, mixed>): void>>
@@ -47,6 +50,7 @@ final class ChatKernel
         ?MessageStoreInterface $messageStore = null,
         ?RoomStoreInterface $roomStore = null,
         ?AttachmentStoreInterface $attachmentStore = null,
+        ?BotManager $botManager = null,
     ) {
         $this->sessions = $sessionStore ?? new InMemorySessionStore();
         $this->messages = $messageStore ?? new InMemoryMessageStore();
@@ -54,6 +58,7 @@ final class ChatKernel
         $this->validator = new PayloadValidator();
         $this->attachmentValidator = new AttachmentValidator($this->config);
         $this->attachments = $attachmentStore ?? new FileAttachmentStore(sys_get_temp_dir() . '/phpsockets-attachments');
+        $this->bots = $botManager ?? new BotManager();
         $this->presence = new PresenceManager(
             new UsernameNormalizer($this->config->maxDisplayNameLength),
             $this->sessions,
@@ -96,6 +101,11 @@ final class ChatKernel
     public function roomStore(): RoomStoreInterface
     {
         return $this->rooms;
+    }
+
+    public function bots(): BotManager
+    {
+        return $this->bots;
     }
 
     public function handleMessage(
@@ -210,6 +220,15 @@ final class ChatKernel
             'roomId' => $room->id,
             'message' => $message->toArray(),
         ]));
+
+        $this->dispatchBotResponses(
+            connections: $connections,
+            sourceMessage: $message,
+            room: $room,
+            connection: $connection,
+            scope: 'global',
+            recipientUserIds: null,
+        );
     }
 
     private function handleDirectMessage(
@@ -247,6 +266,15 @@ final class ChatKernel
             'roomId' => $message->roomId,
             'message' => $message->toArray(),
         ]));
+
+        $this->dispatchBotResponses(
+            connections: $connections,
+            sourceMessage: $message,
+            room: $this->roomManager->createDirectRoom($fromUserId, $toUserId),
+            connection: $connection,
+            scope: 'direct',
+            recipientUserIds: [$fromUserId, $toUserId],
+        );
     }
 
     private function handleRoomCreate(
@@ -318,6 +346,15 @@ final class ChatKernel
             'roomId' => $room->id,
             'message' => $message->toArray(),
         ]));
+
+        $this->dispatchBotResponses(
+            connections: $connections,
+            sourceMessage: $message,
+            room: $room,
+            connection: $connection,
+            scope: 'room',
+            recipientUserIds: $room->memberUserIds,
+        );
     }
 
     private function handleAttachmentPrepare(Connection $connection, MessageEnvelope $envelope): void
@@ -659,6 +696,74 @@ final class ChatKernel
         }
 
         return 'data:' . $mimeType . ';base64,' . base64_encode($content);
+    }
+
+    /**
+     * @param list<string>|null $recipientUserIds
+     */
+    private function dispatchBotResponses(
+        ConnectionRegistryInterface $connections,
+        ChatMessage $sourceMessage,
+        Room $room,
+        ?Connection $connection,
+        string $scope,
+        ?array $recipientUserIds,
+    ): void {
+        if (!$this->bots->hasBots()) {
+            return;
+        }
+
+        if ($sourceMessage->kind !== 'text') {
+            return;
+        }
+
+        if (!is_string($sourceMessage->body) || trim($sourceMessage->body) === '') {
+            return;
+        }
+
+        $sender = $this->sessions->findByUserId($sourceMessage->fromUserId);
+        $context = new BotContext(
+            message: $sourceMessage,
+            room: $room,
+            sender: $sender,
+            scope: $scope,
+            recipientUserIds: $recipientUserIds ?? [],
+        );
+
+        foreach ($this->bots->handle($context) as $botResult) {
+            $bot = $botResult['bot'];
+            $response = $botResult['response'];
+            $botMessage = ChatMessage::bot(
+                roomId: $room->id,
+                botName: $bot->name(),
+                text: $response->text,
+                metadata: $response->metadata,
+            );
+
+            $this->messages->save($botMessage);
+
+            $this->emit('bot.responded', [
+                'bot' => $bot,
+                'message' => $botMessage,
+                'room' => $room,
+                'sourceMessage' => $sourceMessage,
+                'connection' => $connection,
+                'scope' => $scope,
+            ]);
+
+            $envelope = MessageEnvelope::server('message.received', [
+                'roomId' => $room->id,
+                'message' => $botMessage->toArray(),
+            ]);
+
+            if ($recipientUserIds === null) {
+                $this->broadcastAuthenticated($connections, $envelope);
+
+                continue;
+            }
+
+            $this->deliverToUsers($connections, $recipientUserIds, $envelope);
+        }
     }
 
     private function requireAuthenticated(Connection $connection): string
