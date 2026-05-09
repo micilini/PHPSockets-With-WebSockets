@@ -124,6 +124,33 @@ http://127.0.0.1:8002
 
 PrivateChat demonstrates global chat, direct 1:1 conversations, private group rooms, unread badges, typing indicators and simple message receipts.
 
+## Optional storage adapters
+
+PHPSockets currently uses in-memory storage by default for the examples.
+
+The package also includes optional storage adapters:
+
+```txt
+InMemory
+File JSONL messages
+PDO SQLite
+PDO MySQL
+PDO PostgreSQL
+```
+
+SQLite can be initialized programmatically with the migration runner:
+
+```php
+use Micilini\PhpSockets\Database\MigrationRunner;
+use Micilini\PhpSockets\Storage\Pdo\PdoConnectionFactory;
+
+$pdo = PdoConnectionFactory::sqlite(__DIR__ . '/storage/phpsockets.sqlite');
+
+(new MigrationRunner($pdo))->run('sqlite');
+```
+
+The CLI migration command will be added in a future phase.
+
 ## Requirements
 
 The modern version targets:
@@ -136,6 +163,7 @@ The modern version targets:
 Optional future features may require:
 
 - `ext-pdo` for SQL storage adapters.
+- `ext-pdo_sqlite` for SQLite storage tests and local persistence.
 - Laravel packages for optional Laravel integration.
 
 ## Namespace

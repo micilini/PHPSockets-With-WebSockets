@@ -23,6 +23,7 @@
   },
   "suggest": {
     "ext-pdo": "Required for SQL storage adapters and migrations.",
+    "ext-pdo_sqlite": "Required for SQLite storage tests and local persistence.",
     "illuminate/support": "Required for Laravel integration."
   },
   "autoload": {

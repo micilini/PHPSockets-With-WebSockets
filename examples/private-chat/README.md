@@ -112,6 +112,12 @@ PrivateChat displays unread badges for Global Room, direct conversations and pri
 
 Badges increase while a conversation is not open and reset when the conversation is opened.
 
+## Storage note
+
+This example still uses in-memory storage by default.
+
+The package now includes optional storage adapters and migrations, but the official CLI/config workflow is added in a later phase.
+
 ## Important notes
 
 This phase implements direct 1:1 private messaging and private group rooms.

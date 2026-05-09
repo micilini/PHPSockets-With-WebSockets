@@ -32,6 +32,9 @@ desktop.ini
 /storage/*.sqlite
 /storage/*.sqlite3
 /storage/*.db
+/examples/**/storage/*.sqlite
+/examples/**/storage/*.sqlite3
+/examples/**/storage/*.db
 
 node_modules/
 npm-debug.log*
