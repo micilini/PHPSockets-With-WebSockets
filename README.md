@@ -58,6 +58,48 @@ Fix code style automatically:
 composer cs:fix
 ```
 
+## Running the EasyChat example
+
+Start the WebSocket server:
+
+```bash
+php examples/easy-chat/server.php
+```
+
+Open a second terminal and start the browser UI:
+
+```bash
+php -S 127.0.0.1:8000 -t examples/easy-chat/public
+```
+
+Then open:
+
+```txt
+http://127.0.0.1:8000
+```
+
+## Running the MediumChat example
+
+Start the WebSocket server:
+
+```bash
+php examples/medium-chat/server.php
+```
+
+Open a second terminal and start the browser UI:
+
+```bash
+php -S 127.0.0.1:8001 -t examples/medium-chat/public
+```
+
+Then open:
+
+```txt
+http://127.0.0.1:8001
+```
+
+MediumChat demonstrates high-level callbacks such as `user.joined`, `user.left`, `message.received`, and `room.created`, plus low-level socket callbacks such as `open`, `close`, and `error`.
+
 ## Requirements
 
 The modern version targets:

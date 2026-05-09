@@ -10,6 +10,16 @@ use Micilini\PhpSockets\Server\WebSocketServer;
 
 final readonly class ChatServer
 {
+    /**
+     * @var array<string, true>
+     */
+    private const CHAT_EVENT_NAMES = [
+        'user.joined' => true,
+        'user.left' => true,
+        'message.received' => true,
+        'room.created' => true,
+    ];
+
     public function __construct(
         private WebSocketServer $server,
         private ChatKernel $kernel,
@@ -27,6 +37,12 @@ final readonly class ChatServer
 
     public function on(string $eventName, callable $listener): self
     {
+        if (isset(self::CHAT_EVENT_NAMES[$eventName])) {
+            $this->kernel->on($eventName, $listener);
+
+            return $this;
+        }
+
         $this->server->on($eventName, $listener);
 
         return $this;

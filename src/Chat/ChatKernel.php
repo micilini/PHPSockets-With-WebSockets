@@ -31,6 +31,11 @@ final class ChatKernel
     private readonly DirectMessageRouter $directMessages;
     private readonly PrivateGroupRouter $privateGroups;
 
+    /**
+     * @var array<string, list<callable(array<string, mixed>): void>>
+     */
+    private array $listeners = [];
+
     public function __construct(
         private readonly ChatConfig $config,
         ?SessionStoreInterface $sessionStore = null,
@@ -59,6 +64,15 @@ final class ChatKernel
         $server->on('close', function (Connection $connection) use ($server): void {
             $this->handleClose($server->connections(), $connection);
         });
+    }
+
+    /**
+     * @param callable(array<string, mixed>): void $listener
+     */
+    public function on(string $eventName, callable $listener): void
+    {
+        $this->listeners[$eventName] ??= [];
+        $this->listeners[$eventName][] = $listener;
     }
 
     public function presence(): PresenceManager
@@ -135,6 +149,12 @@ final class ChatKernel
             'users' => $this->presence->snapshot(),
         ]));
 
+        $this->emit('user.joined', [
+            'session' => $session,
+            'connection' => $connection,
+            'onlineCount' => count($this->presence->connectedSessions()),
+        ]);
+
         $this->broadcastAuthenticated($connections, MessageEnvelope::server('presence.user_joined', [
             'user' => $session->toArray(),
         ]));
@@ -150,6 +170,13 @@ final class ChatKernel
         $message = ChatMessage::text($room->id, $fromUserId, $this->validator->text($envelope));
 
         $this->messages->save($message);
+
+        $this->emit('message.received', [
+            'message' => $message,
+            'room' => $room,
+            'connection' => $connection,
+            'scope' => 'global',
+        ]);
 
         $this->broadcastAuthenticatedExcept($connections, $fromUserId, MessageEnvelope::server('typing.stopped', [
             'userId' => $fromUserId,
@@ -177,6 +204,13 @@ final class ChatKernel
             toUserId: $toUserId,
             text: $this->validator->text($envelope),
         );
+
+        $this->emit('message.received', [
+            'message' => $message,
+            'connection' => $connection,
+            'scope' => 'direct',
+            'targetUserId' => $toUserId,
+        ]);
 
         $this->deliverToUsers($connections, [$fromUserId, $toUserId], MessageEnvelope::server('message.received', [
             'roomId' => $message->roomId,
@@ -209,6 +243,12 @@ final class ChatKernel
             maxMembers: $this->config->maxPrivateGroupMembers,
         );
 
+        $this->emit('room.created', [
+            'room' => $room,
+            'connection' => $connection,
+            'createdByUserId' => $createdByUserId,
+        ]);
+
         $this->deliverToUsers($connections, $room->memberUserIds, MessageEnvelope::server('room.created', [
             'room' => $room->toArray(),
         ]));
@@ -224,6 +264,13 @@ final class ChatKernel
         $room = $this->roomManager->assertMember($roomId, $fromUserId);
         $message = $this->privateGroups->send($roomId, $fromUserId, $this->validator->text($envelope));
 
+        $this->emit('message.received', [
+            'message' => $message,
+            'room' => $room,
+            'connection' => $connection,
+            'scope' => 'room',
+        ]);
+
         $this->deliverToUsers($connections, $room->memberUserIds, MessageEnvelope::server('message.received', [
             'roomId' => $room->id,
             'message' => $message->toArray(),
@@ -238,7 +285,15 @@ final class ChatKernel
             return;
         }
 
+        $session = $this->sessions->findByUserId($userId);
+
         $this->presence->leave($userId);
+
+        $this->emit('user.left', [
+            'userId' => $userId,
+            'session' => $session,
+            'connection' => $connection,
+        ]);
 
         $this->broadcastAuthenticated($connections, MessageEnvelope::server('typing.stopped', [
             'userId' => $userId,
@@ -307,6 +362,16 @@ final class ChatKernel
     private function sendEnvelope(Connection $connection, MessageEnvelope $envelope): void
     {
         $connection->send($envelope->toJson());
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function emit(string $eventName, array $payload): void
+    {
+        foreach ($this->listeners[$eventName] ?? [] as $listener) {
+            $listener($payload);
+        }
     }
 
     private function broadcastAuthenticated(ConnectionRegistryInterface $connections, MessageEnvelope $envelope): void
