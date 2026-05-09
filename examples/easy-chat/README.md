@@ -114,7 +114,7 @@ text/plain
 Default max size:
 
 ```txt
-512 KB
+2 MB
 ```
 
 All user-provided text continues to be rendered safely.
@@ -138,7 +138,9 @@ text/plain
 Default max file size:
 
 ```txt
-512 KB
+2 MB
 ```
 
 Each delivered file message includes a download button.
+
+Attachments are transported as JSON text-frame envelopes with base64 content. The chat core does not accept binary WebSocket frames for chat messages in this version.

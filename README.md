@@ -162,7 +162,7 @@ Users can:
 - Send image previews, PDFs and text files.
 - Keep message rendering safe with `textContent`.
 
-The initial attachment transport uses base64 payloads over WebSocket with strict limits. Larger uploads and chunked binary frames are planned for future versions.
+The initial attachment transport uses JSON text-frame envelopes with base64 payloads over WebSocket. The chat core does not accept binary WebSocket frames for chat messages in this version. Larger uploads and chunked binary frames are planned for future versions.
 
 ## Attachment composer behavior
 
@@ -183,7 +183,7 @@ text/plain
 Default max file size:
 
 ```txt
-512 KB
+2 MB
 ```
 
 Each delivered file message includes a download button.

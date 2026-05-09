@@ -35,7 +35,7 @@ const EMOJIS = [
   '\u2764\uFE0F', '\u{1F680}', '\u{1F389}', '\u2728', '\u{1F4A1}', '\u2705', '\u{1F4CC}', '\u{1F4E6}',
 ];
 
-const MAX_ATTACHMENT_BYTES = 524288;
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_MIME_TYPES = [
   'image/png',
   'image/jpeg',
@@ -1349,6 +1349,16 @@ async function sendSelectedAttachment(caption) {
   const { file } = state.selectedAttachment;
   const conversationId = state.activeConversationId;
 
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    showAlert(`File is too large. Maximum size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`, 'warning');
+    return;
+  }
+
+  if (!isAllowedAttachment(file)) {
+    showAlert('This file type is not allowed.', 'warning');
+    return;
+  }
+
   try {
     clearLocalTypingStateBeforeSend();
 
@@ -1426,8 +1436,14 @@ function readFileAsBase64(file) {
         return;
       }
 
-      const parts = result.split(',');
-      resolve(parts.length > 1 ? parts[1] : result);
+      const commaIndex = result.indexOf(',');
+
+      if (commaIndex === -1) {
+        reject(new Error('Failed to parse file content.'));
+        return;
+      }
+
+      resolve(result.slice(commaIndex + 1));
     });
 
     reader.addEventListener('error', () => {

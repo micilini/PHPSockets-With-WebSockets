@@ -59,7 +59,7 @@ final readonly class ChatConfig
         int $maxPrivateGroupMembers = 20,
         bool $allowGuestSessions = true,
         int $historyLimit = 50,
-        int $maxAttachmentBytes = 524288,
+        int $maxAttachmentBytes = 2097152,
         int $maxAttachmentFileNameLength = 180,
         ?array $allowedAttachmentMimeTypes = null,
     ): self {

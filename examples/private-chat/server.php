@@ -19,7 +19,7 @@ echo "Open the browser UI with: php -S 127.0.0.1:8002 -t examples/private-chat/p
 echo "Press Ctrl+C to stop the WebSocket server.\n\n";
 
 $server = ChatServer::create(
-    ServerConfig::new(host: $host, port: $port, maxPayloadBytes: 900000),
+    ServerConfig::new(host: $host, port: $port, maxPayloadBytes: 4 * 1024 * 1024),
     ChatConfig::new(),
 );
 

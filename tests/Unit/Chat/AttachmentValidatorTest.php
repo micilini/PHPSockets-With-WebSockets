@@ -40,6 +40,31 @@ final class AttachmentValidatorTest extends TestCase
         self::assertSame('application/pdf', $validator->mimeType('application/pdf'));
     }
 
+    public function testAcceptsTwoMegabyteAttachmentSize(): void
+    {
+        $validator = new AttachmentValidator(ChatConfig::new());
+
+        self::assertSame(2097152, $validator->sizeBytes(2097152));
+    }
+
+    public function testRejectsAttachmentLargerThanTwoMegabytes(): void
+    {
+        $validator = new AttachmentValidator(ChatConfig::new());
+
+        $this->expectException(InvalidPayloadException::class);
+        $this->expectExceptionMessage('Attachment exceeds the maximum allowed size.');
+
+        $validator->sizeBytes(2097153);
+    }
+
+    public function testAcceptsSmallPdfBase64Content(): void
+    {
+        $validator = new AttachmentValidator(ChatConfig::new());
+        $content = "%PDF-1.4\nsmall pdf\n";
+
+        self::assertSame($content, $validator->decodedContent(base64_encode($content), strlen($content)));
+    }
+
     public function testRejectsOversizedAttachment(): void
     {
         $validator = new AttachmentValidator(ChatConfig::new(maxAttachmentBytes: 4));

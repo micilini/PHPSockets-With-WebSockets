@@ -104,6 +104,19 @@ final class FileMessageTest extends TestCase
         $envelope = $this->receiveServerEnvelope($socket, 'attachment.rejected');
 
         self::assertSame('Attachment exceeds the maximum allowed size.', $envelope['payload']['message'] ?? null);
+
+        $this->dispatchClientMessage($server, $connection, [
+            'type' => 'message.global',
+            'payload' => [
+                'text' => 'still connected',
+            ],
+        ]);
+
+        $messageEnvelope = $this->receiveServerEnvelope($socket, 'message.received');
+        $message = $messageEnvelope['payload']['message'] ?? null;
+
+        self::assertIsArray($message);
+        self::assertSame('still connected', $message['body'] ?? null);
     }
 
     public function testPdfFileMessageIsAcceptedWithDownloadDataUrl(): void
