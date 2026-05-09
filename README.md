@@ -1,20 +1,116 @@
 # PHPSockets With WebSockets
 
-PHPSockets With WebSockets is being reborn as a modern native PHP WebSocket and realtime chat library.
+> **Maintenance notice:** this repository is being actively rebuilt as a modern native PHP WebSocket and realtime chat library. The legacy 2016 implementation is preserved for historical reference, while the new Composer-based library is being implemented phase by phase.
 
-The original project was created in 2016 as a simple educational experiment showing how to build a WebSocket server with PHP sockets, without Node.js and without socket.io.
+PHPSockets With WebSockets was originally created in 2016 as an educational experiment showing how to build a WebSocket server with PHP sockets, without Node.js and without socket.io.
 
-This repository is now being progressively redesigned as a Composer package with a clean architecture, modern PHP support, examples, tests, storage adapters, CLI commands, Laravel integration, and a stronger chat-focused developer experience.
+The project is now being progressively redesigned as a Composer package with a clean architecture, modern PHP support, examples, tests, storage adapters, CLI commands, optional Laravel integration, and a stronger chat-focused developer experience.
 
 ## Current status
 
-This repository is currently in the legacy preservation phase.
+The project is currently in the **Composer foundation phase**.
 
-The original 2016 implementation has been moved to the `legacy/` directory so it can be preserved as historical reference while the new library is built from scratch in future phases.
+This means the repository already has the initial Composer package structure, PSR-4 namespace configuration, base configuration classes, PHPUnit setup, PHPStan setup, PHP CS Fixer setup, and GitHub Actions workflow.
+
+The modern WebSocket runtime is not implemented yet.
+
+## Installation for development
+
+Clone the repository and install dependencies:
+
+```bash
+composer install
+```
+
+Validate the Composer package:
+
+```bash
+composer validate --strict
+```
+
+Run the test suite:
+
+```bash
+composer test
+```
+
+Run static analysis:
+
+```bash
+composer analyse
+```
+
+Check code style:
+
+```bash
+composer cs:check
+```
+
+Run all quality checks:
+
+```bash
+composer quality
+```
+
+Fix code style automatically:
+
+```bash
+composer cs:fix
+```
+
+## Requirements
+
+The modern version targets:
+
+- PHP 8.2 or higher.
+- `ext-sockets`.
+- `ext-json`.
+- Composer.
+
+Optional future features may require:
+
+- `ext-pdo` for SQL storage adapters.
+- Laravel packages for optional Laravel integration.
+
+## Namespace
+
+The modern library uses the following namespace:
+
+```txt
+Micilini\PhpSockets\
+```
+
+The current public entry point is:
+
+```php
+use Micilini\PhpSockets\WebSocket;
+
+echo WebSocket::version();
+```
+
+## Current structure
+
+```txt
+src/
+  WebSocket.php
+  Config/
+    ServerConfig.php
+    ChatConfig.php
+
+tests/
+  Unit/
+    SanityTest.php
+
+legacy/
+  EasyChat/
+  MediumChat/
+  README-2016.md
+  NOTES.md
+```
 
 ## Legacy code
 
-The original code is available here:
+The original 2016 implementation is preserved here:
 
 ```txt
 legacy/EasyChat
@@ -25,6 +121,8 @@ legacy/README-2016.md
 `EasyChat` contains the beginner-friendly version of the original global chat.
 
 `MediumChat` contains the more advanced object-oriented version with callbacks and a better separation between the WebSocket server and the chat behavior.
+
+The legacy implementation is kept for historical and educational purposes only. The modern library will be implemented separately and should not depend on the old code structure.
 
 ## Why the legacy code was moved
 
@@ -53,16 +151,36 @@ The new implementation will be developed gradually and will include:
 - Laravel integration.
 - Tests, static analysis, and CI.
 
-## Roadmap
+## Roadmap phases
 
-Implementation will follow the project roadmap phase by phase.
+The project is being implemented phase by phase:
 
-The first phase preserves the legacy code and creates a clean baseline.
+```txt
+Phase 00: Legacy preservation.
+Phase 01: Composer foundation, namespace, quality tools, and CI.
+Phase 02: WebSocket protocol core.
+Phase 03: Server runtime and events.
+Phase 04: Chat core and unique usernames.
+Phase 05: Modern EasyChat example.
+Phase 06: MediumChat example with callbacks.
+Phase 07: Private direct messaging.
+Phase 08: Private group rooms.
+Phase 09: Storage adapters and migrations.
+Phase 10: CLI runtime commands.
+Phase 11: Small attachments and emoji-safe payloads.
+Phase 12: Bot hooks and automation events.
+Phase 13: Laravel integration.
+Phase 14: Release documentation and Packagist preparation.
+```
 
-Future phases will introduce Composer, source code structure, WebSocket protocol handling, server runtime, chat features, examples, persistence, CLI tooling, and release documentation.
+## Production readiness
+
+This package is not production-ready yet.
+
+The repository is currently being rebuilt. The modern WebSocket protocol, server runtime, chat system, examples, storage adapters, CLI commands, and Laravel integration will be added in future phases.
 
 ## Important note
 
-The legacy implementation is kept for historical and educational purposes.
+The goal is not only to restore an old chat demo.
 
-The new library will be implemented separately and should not depend on the old code structure.
+The goal is to transform PHPSockets With WebSockets into a modern, educational, extensible, native PHP realtime library.
