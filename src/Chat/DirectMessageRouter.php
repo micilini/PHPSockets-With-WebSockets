@@ -14,10 +14,13 @@ final readonly class DirectMessageRouter
     ) {
     }
 
-    public function send(string $fromUserId, string $toUserId, string $text): ChatMessage
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    public function send(string $fromUserId, string $toUserId, string $text, array $metadata = []): ChatMessage
     {
         $room = $this->rooms->createDirectRoom($fromUserId, $toUserId);
-        $message = ChatMessage::text($room->id, $fromUserId, $text);
+        $message = ChatMessage::text($room->id, $fromUserId, $text, $metadata);
 
         $this->messages->save($message);
 

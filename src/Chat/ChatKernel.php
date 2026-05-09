@@ -116,8 +116,8 @@ final class ChatKernel
                 'message.read' => $this->handleMessageRead($connections, $connection, $envelope),
                 'room.create' => $this->handleRoomCreate($connections, $connection, $envelope),
                 'room.message' => $this->handleRoomMessage($connections, $connection, $envelope),
-                'typing.start' => $this->handleTypingStatus($connections, $connection, 'typing.started'),
-                'typing.stop' => $this->handleTypingStatus($connections, $connection, 'typing.stopped'),
+                'typing.start' => $this->handleTypingStatus($connections, $connection, $envelope, 'typing.started'),
+                'typing.stop' => $this->handleTypingStatus($connections, $connection, $envelope, 'typing.stopped'),
                 default => throw new InvalidPayloadException('Unsupported message type.'),
             };
         } catch (Throwable $exception) {
@@ -213,10 +213,18 @@ final class ChatKernel
 
         $this->assertOnlineUser($toUserId);
 
+        $clientMessageId = $this->validator->clientMessageId($envelope);
+        $metadata = [];
+
+        if ($clientMessageId !== null) {
+            $metadata['clientMessageId'] = $clientMessageId;
+        }
+
         $message = $this->directMessages->send(
             fromUserId: $fromUserId,
             toUserId: $toUserId,
             text: $this->validator->text($envelope),
+            metadata: $metadata,
         );
 
         $this->emit('message.received', [
@@ -303,13 +311,34 @@ final class ChatKernel
             throw new InvalidPayloadException('Connection session was not found.');
         }
 
-        $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server('message.read', [
+        $roomId = $envelope->payload['roomId'] ?? 'global';
+
+        if (!is_string($roomId) || trim($roomId) === '') {
+            $roomId = 'global';
+        }
+
+        $roomId = trim($roomId);
+        $payload = [
             'messageId' => $this->validator->messageId($envelope),
-            'roomId' => $envelope->payload['roomId'] ?? 'global',
+            'roomId' => $roomId,
             'userId' => $userId,
             'displayName' => $session->displayName,
             'readAt' => (new DateTimeImmutable())->format(DATE_ATOM),
-        ]));
+        ];
+
+        if ($roomId === 'global') {
+            $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server('message.read', $payload));
+
+            return;
+        }
+
+        $room = $this->roomManager->assertMember($roomId, $userId);
+        $recipientUserIds = array_values(array_filter(
+            $room->memberUserIds,
+            static fn (string $memberUserId): bool => $memberUserId !== $userId,
+        ));
+
+        $this->deliverToUsers($connections, $recipientUserIds, MessageEnvelope::server('message.read', $payload));
     }
 
     private function handleClose(ConnectionRegistryInterface $connections, Connection $connection): void
@@ -343,6 +372,7 @@ final class ChatKernel
     private function handleTypingStatus(
         ConnectionRegistryInterface $connections,
         Connection $connection,
+        MessageEnvelope $envelope,
         string $eventType,
     ): void {
         $userId = $this->requireAuthenticated($connection);
@@ -352,10 +382,41 @@ final class ChatKernel
             throw new InvalidPayloadException('Connection session was not found.');
         }
 
+        $toUserId = $envelope->payload['toUserId'] ?? null;
+
+        if ($toUserId !== null && !is_string($toUserId)) {
+            throw new InvalidPayloadException('Payload field toUserId must be a string.');
+        }
+
+        if (is_string($toUserId)) {
+            $toUserId = trim($toUserId);
+
+            if ($toUserId === '') {
+                $toUserId = null;
+            }
+        }
+
+        if ($toUserId !== null) {
+            $this->assertOnlineUser($toUserId);
+
+            $room = $this->roomManager->createDirectRoom($userId, $toUserId);
+
+            $this->deliverToUsers($connections, [$toUserId], MessageEnvelope::server($eventType, [
+                'userId' => $userId,
+                'displayName' => $session->displayName,
+                'roomId' => $room->id,
+                'scope' => 'direct',
+                'toUserId' => $toUserId,
+            ]));
+
+            return;
+        }
+
         $this->broadcastAuthenticatedExcept($connections, $userId, MessageEnvelope::server($eventType, [
             'userId' => $userId,
             'displayName' => $session->displayName,
             'roomId' => 'global',
+            'scope' => 'global',
         ]));
     }
 

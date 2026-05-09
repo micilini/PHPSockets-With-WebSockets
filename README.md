@@ -12,7 +12,7 @@ The project is currently in the **Composer foundation phase**.
 
 This means the repository already has the initial Composer package structure, PSR-4 namespace configuration, base configuration classes, PHPUnit setup, PHPStan setup, PHP CS Fixer setup, and GitHub Actions workflow.
 
-The modern WebSocket runtime is not implemented yet.
+The modern WebSocket runtime, global chat examples, callback-based MediumChat example, and first direct private chat example are now implemented.
 
 ## Installation for development
 
@@ -101,6 +101,28 @@ http://127.0.0.1:8001
 MediumChat demonstrates high-level callbacks such as `user.joined`, `user.left`, `message.received`, and `room.created`, plus low-level socket callbacks such as `open`, `close`, and `error`.
 
 EasyChat and MediumChat also include typing indicators and simple message status receipts for sent, received, and read states.
+
+## Running the PrivateChat example
+
+Start the WebSocket server:
+
+```bash
+php examples/private-chat/server.php
+```
+
+Open a second terminal and start the browser UI:
+
+```bash
+php -S 127.0.0.1:8002 -t examples/private-chat/public
+```
+
+Then open:
+
+```txt
+http://127.0.0.1:8002
+```
+
+PrivateChat demonstrates global chat plus direct 1:1 private conversations. A direct message is delivered only to the sender and the selected recipient.
 
 ## Requirements
 
