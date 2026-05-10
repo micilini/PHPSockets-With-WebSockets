@@ -145,6 +145,8 @@ ws://127.0.0.1:8080
 
 ## Running the Examples
 
+> The example servers can be executed both from a cloned repository and from a project where the package was installed through Composer. The examples use `examples/bootstrap.php` to locate the correct Composer autoload file automatically.
+
 Each example has two parts:
 
 1. a WebSocket server process;
@@ -162,6 +164,13 @@ Open another terminal and serve the UI:
 
 ```bash
 php -S 127.0.0.1:8000 -t examples/easy-chat/public
+```
+
+If you installed the package inside another project with Composer, run:
+
+```bash
+php vendor/micilini/php-websockets/examples/easy-chat/server.php
+php -S 127.0.0.1:8000 -t vendor/micilini/php-websockets/examples/easy-chat/public
 ```
 
 Open:
@@ -196,6 +205,13 @@ Open another terminal and serve the UI:
 php -S 127.0.0.1:8001 -t examples/medium-chat/public
 ```
 
+If you installed the package inside another project with Composer, run:
+
+```bash
+php vendor/micilini/php-websockets/examples/medium-chat/server.php
+php -S 127.0.0.1:8001 -t vendor/micilini/php-websockets/examples/medium-chat/public
+```
+
 Open:
 
 ```txt
@@ -224,6 +240,13 @@ Open another terminal and serve the UI:
 
 ```bash
 php -S 127.0.0.1:8002 -t examples/private-chat/public
+```
+
+If you installed the package inside another project with Composer, run:
+
+```bash
+php vendor/micilini/php-websockets/examples/private-chat/server.php
+php -S 127.0.0.1:8002 -t vendor/micilini/php-websockets/examples/private-chat/public
 ```
 
 Open:
