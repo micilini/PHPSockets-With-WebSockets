@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use Micilini\PhpSockets\Chat\ChatServer;
 use Micilini\PhpSockets\Config\ChatConfig;
