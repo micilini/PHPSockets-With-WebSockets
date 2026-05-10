@@ -10,9 +10,10 @@ use Micilini\PhpSockets\Config\ServerConfig;
 
 $host = getenv('PHPSOCKETS_HOST') ?: '127.0.0.1';
 $port = (int) (getenv('PHPSOCKETS_PORT') ?: 8080);
+$publicPath = str_replace('\\', '/', __DIR__ . '/public');
 
 echo "PHPSockets EasyChat server running on ws://{$host}:{$port}\n";
-echo "Open the browser UI with: php -S 127.0.0.1:8000 -t examples/easy-chat/public\n";
+echo "Open the browser UI with: php -S 127.0.0.1:8000 -t {$publicPath}\n";
 echo "Press Ctrl+C to stop the WebSocket server.\n\n";
 
 $server = ChatServer::create(

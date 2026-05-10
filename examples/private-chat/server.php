@@ -17,9 +17,10 @@ use Micilini\PhpSockets\Examples\PrivateChat\Bots\HelpBot;
 
 $host = getenv('PHPSOCKETS_HOST') ?: '127.0.0.1';
 $port = (int) (getenv('PHPSOCKETS_PORT') ?: 8080);
+$publicPath = str_replace('\\', '/', __DIR__ . '/public');
 
 echo "PHPSockets PrivateChat server running on ws://{$host}:{$port}\n";
-echo "Open the browser UI with: php -S 127.0.0.1:8002 -t examples/private-chat/public\n";
+echo "Open the browser UI with: php -S 127.0.0.1:8002 -t {$publicPath}\n";
 echo "Press Ctrl+C to stop the WebSocket server.\n\n";
 
 $server = ChatServer::create(
