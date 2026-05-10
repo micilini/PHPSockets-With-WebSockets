@@ -16,6 +16,25 @@ Native PHP WebSocket and realtime chat foundation built from scratch with PHP so
 
 ---
 
+## Application Images
+
+<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
+  <div style="flex:1 1 220px;max-width:32%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;">
+    <img src="./images/screen-1.png" alt="Image 1" style="width:100%;height:100%;object-fit:cover;display:block;">
+  </div>
+  <div style="flex:1 1 220px;max-width:32%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;">
+    <img src="./images/screen-2.png" alt="Image 2" style="width:100%;height:100%;object-fit:cover;display:block;">
+  </div>
+  <div style="flex:1 1 220px;max-width:32%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;">
+    <img src="./images/screen-3.png" alt="Image 3" style="width:100%;height:100%;object-fit:cover;display:block;">
+  </div>
+  <div style="flex:1 1 220px;max-width:32%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;">
+    <img src="./images/screen-4.png" alt="Image 4" style="width:100%;height:100%;object-fit:cover;display:block;">
+  </div>
+</div>
+
+---
+
 ## Overview
 
 **PHPSockets** started in 2016 as an educational experiment demonstrating how to build a WebSocket server directly with PHP sockets, without Node.js, without socket.io, and without a third-party realtime runtime.
