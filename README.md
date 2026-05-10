@@ -1,20 +1,24 @@
-# PHPSockets With WebSockets
+# PHPSockets
 
 Native PHP WebSocket and realtime chat foundation built from scratch with PHP sockets. Works standalone with plain PHP or inside Laravel applications.
 
 <p align="center">
   <a href="https://www.php.net/"><img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2+"></a>
   <a href="https://laravel.com/"><img src="https://img.shields.io/badge/Laravel-10%2F11%2F12%2F13-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 10/11/12/13"></a>
-  <a href="https://github.com/micilini/PHPSockets-With-WebSockets/blob/master/LICENSE.txt"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License"></a>
-  <a href="https://github.com/micilini/PHPSockets-With-WebSockets/actions"><img src="https://img.shields.io/github/actions/workflow/status/micilini/PHPSockets-With-WebSockets/tests.yml?branch=master&style=for-the-badge&label=Tests" alt="Tests"></a>
-  <a href="https://packagist.org/packages/micilini/php-sockets-with-websockets"><img src="https://img.shields.io/packagist/v/micilini/php-sockets-with-websockets?style=for-the-badge&label=Packagist" alt="Packagist"></a>
+  <a href="https://github.com/micilini/php-websockets/blob/master/LICENSE.txt"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/micilini/php-websockets/actions"><img src="https://img.shields.io/github/actions/workflow/status/micilini/php-websockets/tests.yml?branch=master&style=for-the-badge&label=Tests" alt="Tests"></a>
+  <a href="https://packagist.org/packages/micilini/php-websockets"><img src="https://img.shields.io/packagist/v/micilini/php-websockets?style=for-the-badge&label=Packagist" alt="Packagist"></a>
+</p>
+
+<p align="center">
+  <strong>Pure PHP WebSockets. Realtime chat. Private rooms. Bots. Laravel-ready.</strong>
 </p>
 
 ---
 
 ## Overview
 
-**PHPSockets With WebSockets** started in 2016 as an educational experiment demonstrating how to build a WebSocket server directly with PHP sockets, without Node.js, without socket.io, and without a third-party realtime runtime.
+**PHPSockets** started in 2016 as an educational experiment demonstrating how to build a WebSocket server directly with PHP sockets, without Node.js, without socket.io, and without a third-party realtime runtime.
 
 The project has now been rebuilt as a modern Composer package for PHP 8.2+, with a clean architecture, WebSocket protocol primitives, a realtime server runtime, a chat kit, private conversations, private group rooms, small attachments, emoji-safe payloads, bot hooks, optional storage adapters, and Laravel integration.
 
@@ -70,7 +74,7 @@ For local development:
 
 ```bash
 git clone https://github.com/micilini/php-websockets.git
-cd PHPSockets-With-WebSockets
+cd php-websockets
 composer install
 ```
 
@@ -266,7 +270,7 @@ PHPSockets can be used inside Laravel applications through Composer package disc
 Install the package:
 
 ```bash
-composer require micilini/php-sockets-with-websockets
+composer require micilini/php-websockets
 ```
 
 Publish the configuration:
@@ -349,13 +353,13 @@ ws://127.0.0.1:8080
 
 For a Laravel demo app, you can keep PHPSockets as the engine and let Laravel serve the example screens.
 
-Recommended structure:
+Recommended local package structure while developing PHPSockets inside a Laravel app:
 
 ```txt
 laravel-app/
   packages/
     micilini/
-      php-sockets-with-websockets/
+      php-websockets/
   public/
     phpsockets/
       easy/
@@ -363,6 +367,15 @@ laravel-app/
       private/
   routes/
     web.php
+```
+
+After installing from Packagist, the package will live under:
+
+```txt
+laravel-app/
+  vendor/
+    micilini/
+      php-websockets/
 ```
 
 The idea is:
@@ -846,14 +859,20 @@ https://packagist.org/packages/submit
 After Packagist detects the package, users can install it with:
 
 ```bash
-composer require micilini/php-sockets-with-websockets
+composer require micilini/php-websockets
+```
+
+Repository:
+
+```txt
+https://github.com/micilini/php-websockets
 ```
 
 ---
 
 ## License
 
-PHPSockets With WebSockets is open-sourced software licensed under the [MIT license](LICENSE.txt).
+PHPSockets is open-sourced software licensed under the [MIT license](LICENSE.txt).
 
 ---
 
