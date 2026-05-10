@@ -23,6 +23,7 @@ use Micilini\PhpSockets\Storage\File\FileAttachmentStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemoryMessageStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemoryRoomStore;
 use Micilini\PhpSockets\Storage\InMemory\InMemorySessionStore;
+use Micilini\PhpSockets\Support\RuntimePath;
 use Throwable;
 
 final class ChatKernel
@@ -57,7 +58,7 @@ final class ChatKernel
         $this->rooms = $roomStore ?? new InMemoryRoomStore();
         $this->validator = new PayloadValidator();
         $this->attachmentValidator = new AttachmentValidator($this->config);
-        $this->attachments = $attachmentStore ?? new FileAttachmentStore(sys_get_temp_dir() . '/phpsockets-attachments');
+        $this->attachments = $attachmentStore ?? new FileAttachmentStore(RuntimePath::attachmentsDirectory());
         $this->bots = $botManager ?? new BotManager();
         $this->presence = new PresenceManager(
             new UsernameNormalizer($this->config->maxDisplayNameLength),

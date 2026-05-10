@@ -33,6 +33,7 @@ desktop.ini
 /storage/*.sqlite3
 /storage/*.db
 /storage/attachments/
+/.phpsockets/
 /examples/**/storage/*.sqlite
 /examples/**/storage/*.sqlite3
 /examples/**/storage/*.db

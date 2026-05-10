@@ -461,6 +461,7 @@ PHPSOCKETS_HOST=127.0.0.1
 PHPSOCKETS_PORT=8080
 PHPSOCKETS_MAX_PAYLOAD_BYTES=4194304
 PHPSOCKETS_MAX_ATTACHMENT_BYTES=2097152
+PHPSOCKETS_ATTACHMENT_DIR=.phpsockets/attachments
 PHPSOCKETS_STORAGE=memory
 PHPSOCKETS_DEBUG=true
 ```
@@ -561,6 +562,22 @@ php artisan phpsockets:migrate --driver=sqlite --database=database/phpsockets.sq
 ## Attachments
 
 The examples support small file messages.
+
+### Attachment runtime directory
+
+By default, PHPSockets stores temporary example attachments in a project-local directory:
+
+```txt
+.phpsockets/attachments
+```
+
+You can override this location with:
+
+```env
+PHPSOCKETS_ATTACHMENT_DIR=/absolute/path/to/attachments
+```
+
+This is especially useful for production deployments, Laravel apps, containers and Windows environments.
 
 Supported MIME types:
 

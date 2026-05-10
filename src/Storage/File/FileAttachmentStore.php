@@ -116,11 +116,23 @@ final readonly class FileAttachmentStore implements AttachmentStoreInterface
     private function ensureDirectory(string $path): void
     {
         if (is_dir($path)) {
+            if (!is_writable($path)) {
+                throw new StorageException("Attachment directory is not writable: {$path}");
+            }
+
             return;
         }
 
-        if (!mkdir($path, 0775, true) && !is_dir($path)) {
+        if (file_exists($path)) {
+            throw new StorageException("Attachment path exists but is not a directory: {$path}");
+        }
+
+        if (!@mkdir($path, 0775, true) && !is_dir($path)) {
             throw new StorageException("Failed to create attachment directory: {$path}");
+        }
+
+        if (!is_writable($path)) {
+            throw new StorageException("Attachment directory is not writable: {$path}");
         }
     }
 }

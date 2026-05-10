@@ -48,4 +48,29 @@ final class ExampleServerAutoloadTest extends TestCase
         self::assertStringContainsString("__DIR__ . '/../../../autoload.php'", $bootstrap);
         self::assertStringContainsString("getcwd() . '/vendor/autoload.php'", $bootstrap);
     }
+
+    public function testExampleServersPrintDynamicPublicPaths(): void
+    {
+        $serverFiles = [
+            __DIR__ . '/../../../examples/easy-chat/server.php',
+            __DIR__ . '/../../../examples/medium-chat/server.php',
+            __DIR__ . '/../../../examples/private-chat/server.php',
+        ];
+
+        foreach ($serverFiles as $serverFile) {
+            $contents = (string) file_get_contents($serverFile);
+
+            self::assertStringContainsString(
+                '$publicPath = str_replace',
+                $contents,
+                "{$serverFile} should compute its public path dynamically.",
+            );
+
+            self::assertStringContainsString(
+                '{$publicPath}',
+                $contents,
+                "{$serverFile} should print the dynamic public path.",
+            );
+        }
+    }
 }
